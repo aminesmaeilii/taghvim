@@ -31,6 +31,11 @@ export interface ContentRepository {
 function now(): string { return new Date().toISOString(); }
 function id(): string { return crypto.randomUUID(); }
 function clone<T>(value: T): T { return structuredClone(value); }
+function addDaysIso(days: number): string {
+  const value = new Date(`${todayIso()}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
 
 function createWorkspace(): WorkspaceData {
   return {
@@ -66,6 +71,202 @@ function ensureDefaultReferences(workspace: WorkspaceData): boolean {
     appendMissingDefaults(workspace.statuses, DEFAULT_STATUSES, "status"),
     appendMissingDefaults(workspace.pillars, DEFAULT_PILLARS, "pillar"),
   ].some(Boolean);
+}
+
+function createBaseEntity(id: string, sortOrder: number) {
+  const timestamp = now();
+  return { id, sortOrder, version: 1, createdAt: timestamp, updatedAt: timestamp, archivedAt: null };
+}
+
+function seedStarterWorkspace(workspace: WorkspaceData): boolean {
+  if (workspace.contents.length || workspace.campaigns.length || workspace.ideas.length || workspace.templates.length) return false;
+
+  const tagData = [
+    ["starter-campaign", "کمپین", "#FF334C"],
+    ["starter-product", "محصول", "#0f766e"],
+    ["starter-trust", "اعتمادسازی", "#2563eb"],
+  ] as const;
+  workspace.tags.push(...tagData.map(([id, name, color], index) => ({ ...createBaseEntity(id, index), name, color })));
+
+  const campaign: Campaign = {
+    ...createBaseEntity("starter-campaign-capture", 0),
+    title: "کمپین معرفی زمبیل",
+    goal: "ساخت اعتماد و افزایش capture برای مخاطبان جدید",
+    description: "نمونه کمپین اولیه برای شروع تقویم محتوا.",
+    startDate: addDaysIso(-2),
+    endDate: addDaysIso(14),
+    platformIds: ["platform-6", "platform-8", "platform-23"],
+    targetAudience: "مخاطبان تازه و کاربران بالقوه زمبیل",
+    mainMessage: "زمبیل مسیر برنامه ریزی، تولید و انتشار محتوا را یکپارچه می کند.",
+    kpi: "ثبت ۲۰ محتوای برنامه ریزی شده و ۵ انتشار موفق",
+    status: "active",
+    notes: null,
+  };
+  workspace.campaigns.push(campaign);
+
+  const contents: Content[] = [
+    {
+      ...createBaseEntity("starter-content-today", 0),
+      title: "پست معرفی تقویم محتوای زمبیل",
+      shortDescription: "شروع برنامه ریزی محتوا برای کانال های اصلی",
+      brief: "یک پست کوتاه درباره ارزش تقویم متمرکز محتوا.",
+      typeId: "type-2",
+      platformId: "platform-6",
+      campaignId: campaign.id,
+      pillarId: "pillar-6",
+      tagIds: ["starter-campaign", "starter-trust"],
+      owner: "تیم محتوا",
+      reviewer: "مدیر",
+      publisher: null,
+      priority: "high",
+      status: "in_progress",
+      publicationDate: todayIso(),
+      publicationTime: "10:00",
+      timezone: "Asia/Tehran",
+      startDate: addDaysIso(-1),
+      deadline: todayIso(),
+      productionDate: todayIso(),
+      reviewDate: addDaysIso(1),
+      recurrence: null,
+      caption: "تقویم محتوا وقتی ارزشمند است که همه تیم بدانند امروز چه چیزی باید منتشر شود.",
+      mainCopy: "این محتوای نمونه برای راه اندازی داشبورد ساخته شده است.",
+      hook: "امروز چه محتوایی باید منتشر شود؟",
+      callToAction: "اولین محتوای واقعی خودتان را بسازید.",
+      hashtags: "#زمبیل #تقویم_محتوا",
+      keywords: "تقویم محتوا، زمبیل",
+      link: null,
+      sourceLink: null,
+      notes: "بعد از ورود داده های واقعی می توانید این آیتم را حذف کنید.",
+      checklist: [
+        { id: "starter-check-1", title: "بازبینی کپشن", completed: false },
+        { id: "starter-check-2", title: "هماهنگی زمان انتشار", completed: false },
+      ],
+      attachments: [],
+      contentVersion: 1,
+      performance: null,
+    },
+    {
+      ...createBaseEntity("starter-content-review", 1),
+      title: "استوری اعتمادسازی برای خرید از زمبیل",
+      shortDescription: "پاسخ به نگرانی های رایج مخاطب",
+      brief: "استوری چند اسلایدی با تمرکز روی اعتماد و مسیر خرید.",
+      typeId: "type-3",
+      platformId: "platform-6",
+      campaignId: campaign.id,
+      pillarId: "pillar-6",
+      tagIds: ["starter-trust"],
+      owner: "تیم محتوا",
+      reviewer: "مدیر",
+      publisher: null,
+      priority: "normal",
+      status: "review",
+      publicationDate: addDaysIso(1),
+      publicationTime: "18:00",
+      timezone: "Asia/Tehran",
+      startDate: todayIso(),
+      deadline: addDaysIso(1),
+      productionDate: todayIso(),
+      reviewDate: todayIso(),
+      recurrence: null,
+      caption: null,
+      mainCopy: "نمونه محتوای در انتظار بررسی.",
+      hook: "چرا مخاطب باید به زمبیل اعتماد کند؟",
+      callToAction: "نظر مخاطبان را جمع آوری کنید.",
+      hashtags: "#اعتمادسازی",
+      keywords: null,
+      link: null,
+      sourceLink: null,
+      notes: null,
+      checklist: [],
+      attachments: [],
+      contentVersion: 1,
+      performance: null,
+    },
+    {
+      ...createBaseEntity("starter-content-scheduled", 2),
+      title: "مقاله کوتاه درباره نظم در تولید محتوا",
+      shortDescription: "محتوای آماده انتشار برای هفته جاری",
+      brief: "یک مقاله وبلاگی کوتاه درباره مدیریت گردش کار محتوا.",
+      typeId: "type-6",
+      platformId: "platform-23",
+      campaignId: campaign.id,
+      pillarId: "pillar-1",
+      tagIds: ["starter-product"],
+      owner: "تیم محتوا",
+      reviewer: "مدیر",
+      publisher: null,
+      priority: "normal",
+      status: "scheduled",
+      publicationDate: addDaysIso(3),
+      publicationTime: "12:30",
+      timezone: "Asia/Tehran",
+      startDate: addDaysIso(1),
+      deadline: addDaysIso(2),
+      productionDate: addDaysIso(1),
+      reviewDate: addDaysIso(2),
+      recurrence: null,
+      caption: null,
+      mainCopy: "نمونه محتوای زمان بندی شده.",
+      hook: "نظم محتوا از کجا شروع می شود؟",
+      callToAction: "تقویم هفته را بررسی کنید.",
+      hashtags: null,
+      keywords: "گردش کار محتوا",
+      link: null,
+      sourceLink: null,
+      notes: null,
+      checklist: [],
+      attachments: [],
+      contentVersion: 1,
+      performance: null,
+    },
+  ];
+  workspace.contents.push(...contents);
+
+  workspace.ideas.push(
+    {
+      ...createBaseEntity("starter-idea-1", 0),
+      title: "سری محتوای پشت صحنه تیم محتوا",
+      description: "نمایش روند تصمیم گیری، تولید و بازبینی برای ساخت اعتماد.",
+      tagIds: ["starter-trust"],
+      pillarId: "pillar-6",
+      referenceLink: null,
+      priority: "high",
+      notes: "برای تبدیل به چند پست و استوری مناسب است.",
+      score: null,
+    },
+    {
+      ...createBaseEntity("starter-idea-2", 1),
+      title: "چک لیست هفتگی انتشار محتوا",
+      description: "یک محتوای آموزشی برای کمک به تیم های کوچک.",
+      tagIds: ["starter-product"],
+      pillarId: "pillar-1",
+      referenceLink: null,
+      priority: "normal",
+      notes: null,
+      score: null,
+    },
+  );
+
+  workspace.templates.push(
+    {
+      ...createBaseEntity("starter-template-post", 0),
+      title: "قالب پست معرفی محصول",
+      typeId: "type-2",
+      platformId: "platform-6",
+      captionStructure: "Hook → مسئله → راه حل → CTA",
+      checklist: [
+        { id: "starter-template-check-1", title: "Hook واضح دارد", completed: false },
+        { id: "starter-template-check-2", title: "CTA مشخص است", completed: false },
+      ],
+      defaultStatus: "draft",
+      defaultOwner: "تیم محتوا",
+      defaultTagIds: ["starter-product"],
+      defaultPublishingTime: "10:00",
+      brief: "برای ساخت سریع پست معرفی محصول یا قابلیت جدید.",
+    },
+  );
+
+  return true;
 }
 
 function matchesFilters(item: Content, filters?: ContentFilters): boolean {
@@ -104,7 +305,7 @@ export class MemoryRepository implements ContentRepository {
     this.settings = clone(snapshot.settings);
   }
 
-  ensureDefaults(): boolean { return ensureDefaultReferences(this.data); }
+  ensureDefaults(): boolean { return ensureDefaultReferences(this.data) || seedStarterWorkspace(this.data); }
   async bootstrap(): Promise<WorkspaceData> { this.ensureDefaults(); return clone(this.data); }
   async listContents(filters?: ContentFilters): Promise<Content[]> {
     return clone(this.data.contents.filter((item) => matchesFilters(item, filters)).sort((a, b) => `${a.publicationDate}${a.publicationTime ?? ""}`.localeCompare(`${b.publicationDate}${b.publicationTime ?? ""}`)));

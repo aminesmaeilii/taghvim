@@ -37,6 +37,7 @@ const MUTATIONS = new Set<keyof ContentRepository>([
   "deleteReference",
   "saveSettings",
   "importWorkspace",
+  "bootstrap",
 ]);
 
 function setCors(req: VercelRequest, res: VercelResponse): void {
