@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": ["frontend", "backend"],
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "npm --workspace frontend run dev",
