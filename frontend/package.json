@@ -1,0 +1,14 @@
+{
+  "name": "@taghvim/frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:run": "vitest run",
+    "test:watch": "vitest"
+  }
+}

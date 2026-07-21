@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: taghvim-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm --workspace backend run build
+    startCommand: npm --workspace backend run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: FRONTEND_URL
+        value: https://taghvim.vercel.app
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
