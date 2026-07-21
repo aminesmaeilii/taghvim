@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WixLocalization Culture="en-us" Codepage="1256" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+  <String Id="TauriLanguage">1033</String>
+  <String Id="TauriCodepage">1256</String>
+  <String Id="LaunchApp">Launch روزنگار</String>
+  <String Id="DowngradeErrorMessage">A newer version of روزنگار is already installed.</String>
+  <String Id="PathEnvVarFeature">Add the install location of the روزنگار executable to the PATH system environment variable. This allows the روزنگار executable to be called from any location.</String>
+  <String Id="InstallAppFeature">Installs روزنگار.</String>
+</WixLocalization>

@@ -1,0 +1,25 @@
+[package]
+name = "rooznegar"
+version = "0.1.1"
+description = "Persian offline content calendar"
+authors = ["Rooznegar"]
+edition = "2021"
+
+[lib]
+name = "rooznegar_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.1", features = [] }
+tauri-plugin-dialog = "2.7.2"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
