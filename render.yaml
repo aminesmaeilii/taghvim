@@ -3,8 +3,8 @@ services:
     name: taghvim-backend
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: npm install && npm --workspace backend run build
+    startCommand: npm --workspace backend run start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
