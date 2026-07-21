@@ -1,20 +1,9 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm --workspace frontend run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm ci",
+  "installCommand": "npm install",
   "framework": "vite",
-  "builds": [
-    { "src": "api/*.js", "use": "@vercel/node" },
-    { "src": "frontend/package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
-  ],
   "rewrites": [
-    {
-      "source": "/api/workspace",
-      "destination": "/api/workspace.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/index.html"
-    }
+
   ]
 }
