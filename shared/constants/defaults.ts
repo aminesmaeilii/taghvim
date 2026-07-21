@@ -1,4 +1,4 @@
-import type { AppSettings, ContentStatus, ContentStatusKey, ContentType, ContentPillar, Platform } from "../types/domain";
+import type { AppSettings, ContentStatus, ContentStatusKey, ContentType, ContentPillar, Platform } from "../types/domain.js";
 
 const base = (id: string, sortOrder: number) => ({
   id,

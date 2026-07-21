@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import { MemoryRepository, type ContentRepository } from "../../../shared/services/workspace-memory-repository";
+import { MemoryRepository, type ContentRepository } from "../../../shared/services/workspace-memory-repository.js";
 
 type VercelRequest = {
   method?: string;
@@ -22,7 +22,7 @@ type RpcBody = {
 };
 
 const SNAPSHOT_KEY = "taghvim:workspace:v1";
-const redis = Redis.fromEnv();
+let redis: Redis | null = null;
 const MUTATIONS = new Set<keyof ContentRepository>([
   "saveContent",
   "archiveContent",
@@ -52,12 +52,21 @@ function setCors(req: VercelRequest, res: VercelResponse): void {
 }
 
 async function loadSnapshot(repository: MemoryRepository): Promise<void> {
-  const snapshot = await redis.get<Snapshot>(SNAPSHOT_KEY);
+  const snapshot = await getRedis().get<Snapshot>(SNAPSHOT_KEY);
   if (snapshot) repository.restore(snapshot);
 }
 
 async function saveSnapshot(repository: MemoryRepository): Promise<void> {
-  await redis.set(SNAPSHOT_KEY, repository.snapshot());
+  await getRedis().set(SNAPSHOT_KEY, repository.snapshot());
+}
+
+function getRedis(): Redis {
+  if (redis) return redis;
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    throw new Error("Missing Upstash Redis environment variables.");
+  }
+  redis = Redis.fromEnv();
+  return redis;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

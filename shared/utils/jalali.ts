@@ -1,4 +1,6 @@
-import { isValidJalaaliDate, jalaaliMonthLength, toGregorian, toJalaali } from "jalaali-js";
+import jalaali from "jalaali-js";
+
+const { isValidJalaaliDate, jalaaliMonthLength, toGregorian, toJalaali } = jalaali;
 
 export const JALALI_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"] as const;
 export const JALALI_WEEKDAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنجشنبه", "جمعه"] as const;

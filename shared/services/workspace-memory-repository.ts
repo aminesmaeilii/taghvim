@@ -1,6 +1,6 @@
-import { DEFAULT_PILLARS, DEFAULT_PLATFORMS, DEFAULT_STATUSES, DEFAULT_TYPES } from "../constants/defaults";
-import type { AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Platform, Tag, WorkspaceData } from "../types/domain";
-import { todayIso } from "../utils/jalali";
+import { DEFAULT_PILLARS, DEFAULT_PLATFORMS, DEFAULT_STATUSES, DEFAULT_TYPES } from "../constants/defaults.js";
+import type { AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Platform, Tag, WorkspaceData } from "../types/domain.js";
+import { todayIso } from "../utils/jalali.js";
 
 export type NewContent = Omit<Content, "id" | "createdAt" | "updatedAt" | "archivedAt" | "sortOrder" | "version" | "contentVersion">;
 export type ReferenceEntity = Platform | ContentType | ContentStatus | ContentPillar | Tag;

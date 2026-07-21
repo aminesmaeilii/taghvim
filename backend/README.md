@@ -7,6 +7,7 @@ Root Directory: .
 Build Command: npm install && npm --workspace backend run build
 Start Command: npm --workspace backend run start
 Health Check Path: /health
+Node Version: 20
 ```
 
 Required environment variables:

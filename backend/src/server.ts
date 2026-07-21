@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import workspaceHandler from "./routes/workspace";
+import workspaceHandler from "./routes/workspace.js";
 
-const PORT = Number(process.env.PORT ?? 3000);
+const PORT = Number(process.env.PORT || 3000);
 
 type RenderRequest = {
   method?: string;
@@ -86,6 +86,14 @@ const server = createServer(async (req, res) => {
     res.setHeader("content-type", "application/json; charset=utf-8");
     res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Unexpected backend error." }));
   }
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error);
 });
 
 server.listen(PORT, "0.0.0.0", () => {
