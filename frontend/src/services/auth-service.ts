@@ -1,6 +1,7 @@
 import type { AccountStatus, AuditLog, AuthSession, AuthUser, CreateUserInput, DataScope, LoginResult, Permission, Role, SafeUser } from "@shared/types/auth";
 
 const DB_NAME = "zambil-auth-v2";
+const LEGACY_DB_NAME = "zambil-auth";
 const DB_VERSION = 1;
 const SESSION_KEY = "zambil.auth.session";
 const SESSION_HOURS = 12;
@@ -39,9 +40,9 @@ async function verifyPassword(password: string, user: AuthUser): Promise<boolean
   return result.hash === user.passwordHash;
 }
 
-function openDb(): Promise<IDBDatabase> {
+function openDb(dbName = DB_NAME): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(dbName, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("users")) {
@@ -57,8 +58,8 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-async function storeGetAll<T>(storeName: string): Promise<T[]> {
-  const db = await openDb();
+async function storeGetAll<T>(storeName: string, dbName = DB_NAME): Promise<T[]> {
+  const db = await openDb(dbName);
   return new Promise((resolve, reject) => {
     const request = db.transaction(storeName, "readonly").objectStore(storeName).getAll();
     request.onsuccess = () => resolve(request.result as T[]);
@@ -73,6 +74,28 @@ async function storePut<T>(storeName: string, value: T): Promise<T> {
     request.onsuccess = () => resolve(value);
     request.onerror = () => reject(request.error);
   });
+}
+
+async function migrateLegacyAuth(): Promise<void> {
+  const currentUsers = await storeGetAll<AuthUser>("users");
+  const legacyUsers = await storeGetAll<AuthUser>("users", LEGACY_DB_NAME).catch(() => []);
+  if (legacyUsers.length === 0) return;
+
+  const currentUserKeys = new Set(currentUsers.flatMap((user) => [user.username.toLowerCase(), user.email.toLowerCase()]));
+  for (const user of legacyUsers) {
+    if (!currentUserKeys.has(user.username.toLowerCase()) && !currentUserKeys.has(user.email.toLowerCase())) {
+      await storePut("users", user);
+    }
+  }
+
+  if (currentUsers.length === 0) {
+    for (const session of await storeGetAll<AuthSession>("sessions", LEGACY_DB_NAME).catch(() => [])) {
+      await storePut("sessions", session);
+    }
+    for (const auditLog of await storeGetAll<AuditLog>("auditLogs", LEGACY_DB_NAME).catch(() => [])) {
+      await storePut("auditLogs", auditLog);
+    }
+  }
 }
 
 async function addAudit(entry: Omit<AuditLog, "id" | "createdAt">): Promise<void> {
@@ -98,6 +121,7 @@ function validatePassword(password: string, user?: Pick<AuthUser, "username" | "
 }
 
 async function ensureBootstrapAdmin(): Promise<void> {
+  await migrateLegacyAuth();
   const users = await storeGetAll<AuthUser>("users");
   if (users.some((user) => user.role === "SUPER_ADMIN" && user.status !== "DELETED")) return;
   const password = "Taghvim!2026#Root";
