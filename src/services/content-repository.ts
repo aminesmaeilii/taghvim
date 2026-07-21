@@ -92,7 +92,7 @@ function matchesFilters(item: Content, filters?: ContentFilters): boolean {
   return true;
 }
 
-class MemoryRepository implements ContentRepository {
+export class MemoryRepository implements ContentRepository {
   protected data = createWorkspace();
   protected settings: AppSettings | null = null;
 
@@ -317,6 +317,44 @@ class TauriRepository implements ContentRepository {
   backup() { return this.call<string>("create_backup"); }
 }
 
+class ApiRepository implements ContentRepository {
+  constructor(private readonly baseUrl: string) {}
+
+  private async call<T>(method: keyof ContentRepository, args: unknown[] = []): Promise<T> {
+    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/workspace`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ method, args }),
+    });
+    const payload = await response.json().catch(() => null) as { data?: T; error?: string } | null;
+    if (!response.ok) throw new Error(payload?.error ?? "Backend request failed.");
+    return payload?.data as T;
+  }
+
+  bootstrap() { return this.call<WorkspaceData>("bootstrap"); }
+  listContents(filters?: ContentFilters) { return this.call<Content[]>("listContents", [filters]); }
+  saveContent(content: Content | NewContent) { return this.call<Content>("saveContent", [content]); }
+  archiveContent(id: string) { return this.call<void>("archiveContent", [id]); }
+  deleteContent(id: string) { return this.call<void>("deleteContent", [id]); }
+  moveContent(id: string, publicationDate: string, status?: Content["status"]) { return this.call<Content>("moveContent", [id, publicationDate, status]); }
+  duplicateContent(id: string, options?: { copySchedule?: boolean }) { return this.call<Content>("duplicateContent", [id, options]); }
+  saveCampaign(campaign: Campaign) { return this.call<Campaign>("saveCampaign", [campaign]); }
+  saveIdea(idea: ContentIdea) { return this.call<ContentIdea>("saveIdea", [idea]); }
+  saveTemplate(template: ContentTemplate) { return this.call<ContentTemplate>("saveTemplate", [template]); }
+  deleteEntity(entity: "campaign" | "idea" | "template", id: string) { return this.call<void>("deleteEntity", [entity, id]); }
+  saveReference(kind: ReferenceKind, entity: ReferenceEntity) { return this.call<ReferenceEntity>("saveReference", [kind, entity]); }
+  deleteReference(kind: ReferenceKind, id: string) { return this.call<void>("deleteReference", [kind, id]); }
+  getSettings() { return this.call<AppSettings | null>("getSettings"); }
+  saveSettings(settings: AppSettings) { return this.call<void>("saveSettings", [settings]); }
+  dashboard() { return this.call<DashboardData>("dashboard"); }
+  exportWorkspace() { return this.call<string>("exportWorkspace"); }
+  importWorkspace(raw: string) { return this.call<{ imported: number; skipped: number; errors: string[] }>("importWorkspace", [raw]); }
+  backup() { return this.call<string>("backup"); }
+}
+
+const apiBaseUrl = typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE_URL : undefined;
+
 export const contentRepository: ContentRepository = isDesktopRuntime
   ? new TauriRepository()
-  : hasIndexedDb() ? new BrowserRepository() : new MemoryRepository();
+  : apiBaseUrl ? new ApiRepository(apiBaseUrl)
+    : hasIndexedDb() ? new BrowserRepository() : new MemoryRepository();
