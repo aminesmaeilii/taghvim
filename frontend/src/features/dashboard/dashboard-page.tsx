@@ -56,7 +56,7 @@ export function DashboardPage() {
   const topIdeas = [...activeIdeas].sort((a, b) => (b.score?.total ?? scoreIdea(b).total) - (a.score?.total ?? scoreIdea(a).total)).slice(0, 4);
   const hasContent = contents.data.length > 0;
   return <div className="page dashboard-page">
-    <PageHeader title="داشبورد زمبیل" description={`${formatJalaliDate(today, { includeWeekday: true })} · نمای کاری PR، تولید محتوا و CMO`} actions={<Button onClick={() => openContentDialog({ quick: true })}><Plus size={18} />محتوای جدید</Button>} />
+    <PageHeader title="داشبورد زمبیل" description={`${formatJalaliDate(today, { includeWeekday: true })} · نمای کاری PR، تولید محتوا و CMO`} />
     {!hasContent ? <section className="welcome-panel"><div><span className="eyebrow">شروع فضای کاری</span><h2>برنامه محتوای شما از همین جا شکل می گیرد.</h2><p>یک آیتم بسازید، تقویم را باز کنید یا داده های قبلی تان را وارد کنید.</p></div><div className="welcome-actions"><Button onClick={() => openContentDialog({ quick: true })}><Plus size={18} />ساخت اولین محتوا</Button><Button variant="secondary" onClick={() => navigate("/calendar")}>باز کردن تقویم</Button></div></section> : <>
       <section className="role-switch surface" aria-label="نمای نقش">
         {(Object.keys(roleLabels) as DashboardRole[]).map((item) => <button key={item} type="button" className={role === item ? "active" : ""} onClick={() => setRole(item)}>{roleLabels[item]}</button>)}

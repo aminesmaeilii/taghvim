@@ -8,7 +8,7 @@ import zambilLogo from "../assets/zambil-logo.jpg";
 import { useAuth } from "../hooks/use-auth-context";
 
 const navigation = [
-  ["/", "داشبورد", Gauge], ["/calendar", "تقویم محتوا", CalendarDays], ["/contents", "فهرست محتوا", TableProperties],
+  ["/", "داشبورد", Gauge], ["/calendar", "تقویم محتوا", CalendarDays], ["/jalali-calendar", "تقویم شمسی", CalendarDays], ["/contents", "فهرست محتوا", TableProperties],
   ["/workflow", "گردش کار", Workflow], ["/campaigns", "کمپین ها", FolderKanban], ["/ideas", "ایده ها", Lightbulb],
   ["/templates", "قالب ها", ClipboardList], ["/reports", "گزارش ها", Sparkles], ["/settings", "تنظیمات", Settings],
 ] as const;

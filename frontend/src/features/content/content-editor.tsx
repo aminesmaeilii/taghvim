@@ -13,11 +13,11 @@ import { JalaliDateInput } from "../../components/jalali-date-input";
 
 const clean = (value?: string) => value?.trim() || null;
 
-function getFormDefaults(content: Content | undefined, date?: string, defaults?: { platformId: string; typeId: string }): ContentFormInput {
+function getFormDefaults(content: Content | undefined, date?: string, defaults?: { platformId: string; typeId: string; campaignId?: string }): ContentFormInput {
   return {
     title: content?.title ?? "", platformId: content?.platformId ?? defaults?.platformId ?? "", typeId: content?.typeId ?? defaults?.typeId ?? "", status: content?.status ?? "draft",
     priority: content?.priority ?? "normal", publicationDate: date ?? content?.publicationDate ?? todayIso(), publicationTime: content?.publicationTime ?? "",
-    shortDescription: content?.shortDescription ?? "", brief: content?.brief ?? "", campaignId: content?.campaignId ?? "", pillarId: content?.pillarId ?? "",
+    shortDescription: content?.shortDescription ?? "", brief: content?.brief ?? "", campaignId: content?.campaignId ?? defaults?.campaignId ?? "", pillarId: content?.pillarId ?? "",
     owner: content?.owner ?? "", reviewer: content?.reviewer ?? "", caption: content?.caption ?? "", mainCopy: content?.mainCopy ?? "",
     hook: content?.hook ?? "", callToAction: content?.callToAction ?? "", hashtags: content?.hashtags ?? "", keywords: content?.keywords ?? "", link: content?.link ?? "", notes: content?.notes ?? "",
   };
@@ -31,10 +31,10 @@ export function ContentEditor() {
   const existing = workspace.data?.contents.find((item) => item.id === contentDialog.contentId);
   const defaultPlatform = workspace.data?.platforms.find((item) => !item.archivedAt)?.id ?? "";
   const defaultType = workspace.data?.types.find((item) => !item.archivedAt)?.id ?? "";
-  const form = useForm<ContentFormInput>({ resolver: zodResolver(contentSchema), defaultValues: getFormDefaults(existing, contentDialog.date, { platformId: defaultPlatform, typeId: defaultType }) });
+  const form = useForm<ContentFormInput>({ resolver: zodResolver(contentSchema), defaultValues: getFormDefaults(existing, contentDialog.date, { platformId: defaultPlatform, typeId: defaultType, campaignId: contentDialog.campaignId }) });
   const { register, handleSubmit, reset, control, formState: { errors } } = form;
 
-  useEffect(() => { reset(getFormDefaults(existing, contentDialog.date, { platformId: defaultPlatform, typeId: defaultType })); setSection("basic"); }, [defaultPlatform, defaultType, existing, contentDialog.date, contentDialog.open, reset]);
+  useEffect(() => { reset(getFormDefaults(existing, contentDialog.date, { platformId: defaultPlatform, typeId: defaultType, campaignId: contentDialog.campaignId })); setSection("basic"); }, [defaultPlatform, defaultType, existing, contentDialog.campaignId, contentDialog.date, contentDialog.open, reset]);
   if (!workspace.data) return null;
   const quick = contentDialog.quick && !existing;
 

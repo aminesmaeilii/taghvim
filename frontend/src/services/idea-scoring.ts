@@ -1,6 +1,6 @@
-import type { ContentIdea, IdeaScore, IdeaScoreBreakdown } from "@shared/types/domain";
+import type { ContentIdea, IdeaScore, IdeaScoreBreakdown, IdeaScoringSettings } from "@shared/types/domain";
 
-type Criterion = {
+export type Criterion = {
   key: string;
   label: string;
   maxPoints: number;
@@ -8,7 +8,7 @@ type Criterion = {
   guidance: string;
 };
 
-const criteria: Criterion[] = [
+export const DEFAULT_IDEA_SCORING_CRITERIA: Criterion[] = [
   {
     key: "capture",
     label: "کمک به Capture",
@@ -91,11 +91,13 @@ function labelFor(total: number): IdeaScore["label"] {
   return "ضعیف";
 }
 
-export function scoreIdea(input: Pick<ContentIdea, "title" | "description" | "notes" | "priority">): IdeaScore {
+export function scoreIdea(input: Pick<ContentIdea, "title" | "description" | "notes" | "priority">, settings?: IdeaScoringSettings): IdeaScore {
   const text = normalize([input.title, input.description, input.notes].filter(Boolean).join(" "));
-  const breakdown = criteria.map((criterion) => scoreCriterion(text, criterion));
+  const scoringCriteria = settings?.criteria?.length ? settings.criteria : DEFAULT_IDEA_SCORING_CRITERIA;
+  const scoringPenaltyKeywords = settings?.penaltyKeywords?.length ? settings.penaltyKeywords : penaltyKeywords;
+  const breakdown = scoringCriteria.map((criterion) => scoreCriterion(text, criterion));
   const rawTotal = breakdown.reduce((sum, item) => sum + item.points, 0);
-  const penalties = matches(text, penaltyKeywords);
+  const penalties = matches(text, scoringPenaltyKeywords);
   const penalty = Math.min(15, penalties.length * 5);
   const priorityBonus = ({ low: 0, normal: 1, high: 2, urgent: 2 } as const)[input.priority] ?? 0;
   const total = Math.max(0, Math.min(100, rawTotal - penalty + priorityBonus));

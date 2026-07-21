@@ -6,6 +6,7 @@ import { ForcePasswordChangePage, LoginPage, ProfilePage, SessionsPage } from ".
 import { ContentListPage } from "../features/content/content-list-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { CalendarPage } from "../features/calendar/calendar-page";
+import { JalaliCalendarPage } from "../features/calendar/jalali-calendar-page";
 import { CampaignsPage, IdeasPage, TemplatesPage } from "../features/planning/planning-pages";
 import { ReportsPage } from "../features/reports/reports-page";
 import { SettingsPage } from "../features/settings/settings-page";
@@ -51,6 +52,7 @@ export function App() {
     <Route element={<ProtectedApp />}>
       <Route index element={<DashboardPage />} />
       <Route path="calendar" element={<CalendarPage />} />
+      <Route path="jalali-calendar" element={<JalaliCalendarPage />} />
       <Route path="contents" element={<ContentListPage />} />
       <Route path="workflow" element={<WorkflowPage />} />
       <Route path="campaigns" element={<CampaignsPage />} />

@@ -168,6 +168,19 @@ export interface IdeaScore {
   scoredAt: string;
 }
 
+export interface IdeaScoringCriterionSetting {
+  key: string;
+  label: string;
+  maxPoints: number;
+  keywords: string[];
+  guidance: string;
+}
+
+export interface IdeaScoringSettings {
+  criteria: IdeaScoringCriterionSetting[];
+  penaltyKeywords: string[];
+}
+
 export interface ContentTemplate extends BaseEntity {
   title: string;
   typeId?: string | null;
@@ -219,6 +232,7 @@ export interface AppSettings {
   notificationLeadMinutes: number;
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
+  ideaScoring: IdeaScoringSettings;
 }
 
 export interface DashboardData {

@@ -10,12 +10,12 @@ export interface ToastMessage {
 interface UIState {
   sidebarCollapsed: boolean;
   theme: Theme;
-  contentDialog: { open: boolean; contentId?: string; date?: string; quick?: boolean };
+  contentDialog: { open: boolean; contentId?: string; date?: string; quick?: boolean; campaignId?: string };
   filters: ContentFilters;
   toasts: ToastMessage[];
   toggleSidebar: () => void;
   setTheme: (theme: Theme) => void;
-  openContentDialog: (options?: { contentId?: string; date?: string; quick?: boolean }) => void;
+  openContentDialog: (options?: { contentId?: string; date?: string; quick?: boolean; campaignId?: string }) => void;
   closeContentDialog: () => void;
   setFilters: (filters: ContentFilters) => void;
   clearFilters: () => void;
