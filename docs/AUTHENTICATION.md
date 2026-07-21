@@ -6,7 +6,7 @@
 
 پیاده سازی فعلی Auth برای اجرای محلی و dev روی IndexedDB مرورگر ساخته شده است و شامل موارد زیر است:
 
-- حساب Bootstrap با `admin / password`
+- حساب Bootstrap با `taghvim-root / Taghvim!2026#Root`
 - اجبار تغییر رمز اولیه
 - Hash رمز با WebCrypto و PBKDF2 + Salt
 - Session قابل ابطال با token hash شده در دیتابیس Auth
@@ -24,8 +24,9 @@
 ## ورود اولیه
 
 ```text
-Username: admin
-Password: password
+Username: taghvim-root
+Password: Taghvim!2026#Root
+Email: root@taghvim.app
 ```
 
 این حساب با `mustChangePassword = true` ساخته می شود. تا زمانی که رمز تغییر نکند، کاربر به داشبورد دسترسی ندارد.

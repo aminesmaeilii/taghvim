@@ -1,6 +1,6 @@
 import type { AccountStatus, AuditLog, AuthSession, AuthUser, CreateUserInput, DataScope, LoginResult, Permission, Role, SafeUser } from "@shared/types/auth";
 
-const DB_NAME = "zambil-auth";
+const DB_NAME = "zambil-auth-v2";
 const DB_VERSION = 1;
 const SESSION_KEY = "zambil.auth.session";
 const SESSION_HOURS = 12;
@@ -100,16 +100,16 @@ function validatePassword(password: string, user?: Pick<AuthUser, "username" | "
 async function ensureBootstrapAdmin(): Promise<void> {
   const users = await storeGetAll<AuthUser>("users");
   if (users.some((user) => user.role === "SUPER_ADMIN" && user.status !== "DELETED")) return;
-  const password = "password";
+  const password = "Taghvim!2026#Root";
   const { hash, salt } = await hashPassword(password);
   const admin: AuthUser = {
-    id: crypto.randomUUID(), username: "admin", email: "admin@zambil.local", firstName: "مدیر", lastName: "سیستم",
+    id: crypto.randomUUID(), username: "taghvim-root", email: "root@taghvim.app", firstName: "مدیر", lastName: "سیستم",
     phone: null, avatarUrl: null, jobTitle: "Super Admin", department: "مدیریت", team: "هسته", role: "SUPER_ADMIN", extraPermissions: [],
     dataScope: "ALL", status: "ACTIVE", mustChangePassword: true, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: null,
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: "Bootstrap account",
   };
   await storePut("users", admin);
-  await addAudit({ actorUserId: null, targetUserId: admin.id, action: "auth.bootstrap_super_admin", result: "success", metadata: { username: "admin" } });
+  await addAudit({ actorUserId: null, targetUserId: admin.id, action: "auth.bootstrap_super_admin", result: "success", metadata: { username: "taghvim-root" } });
 }
 
 export const authService = {
