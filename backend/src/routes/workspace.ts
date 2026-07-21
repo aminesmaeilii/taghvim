@@ -43,8 +43,12 @@ function setCors(req: VercelRequest, res: VercelResponse): void {
   const origin = req.headers.origin;
   const allowed = new Set([
     "https://taghvim.vercel.app",
-    process.env.VITE_FRONTEND_URL,
     process.env.FRONTEND_URL,
+    ...(process.env.ALLOWED_ORIGINS?.split(",").map((item) => item.trim()).filter(Boolean) ?? []),
+    "http://localhost:1420",
+    "http://localhost:5173",
+    "http://127.0.0.1:1420",
+    "http://127.0.0.1:5173",
   ].filter(Boolean));
   res.setHeader("access-control-allow-origin", origin && allowed.has(origin) ? origin : "https://taghvim.vercel.app");
   res.setHeader("access-control-allow-methods", "POST, OPTIONS");
@@ -52,18 +56,22 @@ function setCors(req: VercelRequest, res: VercelResponse): void {
 }
 
 async function loadSnapshot(repository: MemoryRepository): Promise<void> {
-  const snapshot = await getRedis().get<Snapshot>(SNAPSHOT_KEY);
+  const client = getRedis();
+  if (!client) return;
+  const snapshot = await client.get<Snapshot>(SNAPSHOT_KEY);
   if (snapshot) repository.restore(snapshot);
 }
 
 async function saveSnapshot(repository: MemoryRepository): Promise<void> {
-  await getRedis().set(SNAPSHOT_KEY, repository.snapshot());
+  const client = getRedis();
+  if (!client) return;
+  await client.set(SNAPSHOT_KEY, repository.snapshot());
 }
 
-function getRedis(): Redis {
+function getRedis(): Redis | null {
   if (redis) return redis;
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    throw new Error("Missing Upstash Redis environment variables.");
+    return null;
   }
   redis = Redis.fromEnv();
   return redis;

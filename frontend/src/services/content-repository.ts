@@ -1,4 +1,5 @@
 import { isDesktopRuntime, platformInvoke } from "./platform";
+import { API_BASE_URL } from "./api-config";
 import { MemoryRepository, type ContentRepository, type NewContent, type ReferenceEntity, type ReferenceKind } from "@shared/services/workspace-memory-repository";
 import type { AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, DashboardData, WorkspaceData } from "@shared/types/domain";
 
@@ -141,9 +142,7 @@ class ApiRepository implements ContentRepository {
   backup() { return this.call<string>("backup"); }
 }
 
-const apiBaseUrl = typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE_URL : undefined;
-
 export const contentRepository: ContentRepository = isDesktopRuntime
   ? new TauriRepository()
-  : apiBaseUrl ? new ApiRepository(apiBaseUrl)
+  : API_BASE_URL ? new ApiRepository(API_BASE_URL)
     : hasIndexedDb() ? new BrowserRepository() : new MemoryRepository();
