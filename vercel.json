@@ -4,6 +4,13 @@
   "installCommand": "npm install",
   "framework": "vite",
   "rewrites": [
-
+    {
+      "source": "/api/workspace",
+      "destination": "/api/workspace.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
+    }
   ]
 }
