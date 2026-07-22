@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.1",
   "type": "module",
-  "workspaces": ["frontend", "backend"],
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "engines": {
     "node": "24.x"
   },
@@ -31,8 +34,10 @@
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-dialog": "^2.2.1",
     "@upstash/redis": "^1.38.0",
+    "@vercel/blob": "^2.6.1",
     "jalaali-js": "^1.2.8",
     "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^6.1.200",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",

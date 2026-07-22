@@ -14,6 +14,7 @@ interface UIState {
   filters: ContentFilters;
   toasts: ToastMessage[];
   toggleSidebar: () => void;
+  closeSidebar: () => void;
   setTheme: (theme: Theme) => void;
   openContentDialog: (options?: { contentId?: string; date?: string; quick?: boolean; campaignId?: string }) => void;
   closeContentDialog: () => void;
@@ -23,7 +24,8 @@ interface UIState {
   dismissToast: (id: string) => void;
 }
 
-const storedSidebar = localStorage.getItem("rooznegar.sidebar") === "collapsed";
+const storedSidebarRaw = localStorage.getItem("rooznegar.sidebar");
+const storedSidebar = storedSidebarRaw ? storedSidebarRaw === "collapsed" : typeof window !== "undefined" && window.matchMedia("(max-width: 680px)").matches;
 const storedTheme = (localStorage.getItem("rooznegar.theme") as Theme | null) ?? "light";
 
 export const useUIStore = create<UIState>((set) => ({
@@ -37,6 +39,7 @@ export const useUIStore = create<UIState>((set) => ({
     localStorage.setItem("rooznegar.sidebar", sidebarCollapsed ? "collapsed" : "expanded");
     return { sidebarCollapsed };
   }),
+  closeSidebar: () => { localStorage.setItem("rooznegar.sidebar", "collapsed"); set({ sidebarCollapsed: true }); },
   setTheme: (theme) => { localStorage.setItem("rooznegar.theme", theme); set({ theme }); },
   openContentDialog: (options = {}) => set({ contentDialog: { open: true, ...options } }),
   closeContentDialog: () => set({ contentDialog: { open: false } }),

@@ -11,6 +11,8 @@ import { useUIStore } from "../../stores/ui-store";
 import type { Content, ContentFilters } from "@shared/types/domain";
 import { formatJalaliDate } from "@shared/utils/jalali";
 import { ContentDetailDrawer } from "./content-detail-drawer";
+import { LastEditedTag } from "../../components/last-edited-tag";
+import { useActivityLogger } from "../../hooks/use-profile";
 
 const PAGE_SIZE = 10;
 
@@ -28,6 +30,7 @@ export function ContentListPage() {
   const filters: ContentFilters = { search: search || undefined, status: status ? [status] : undefined, platformIds: platform ? [platform] : undefined };
   const contents = useContents(filters);
   const queryClient = useQueryClient();
+  const logActivity = useActivityLogger();
   const invalidate = () => { void queryClient.invalidateQueries({ queryKey: ["contents"] }); void queryClient.invalidateQueries({ queryKey: ["workspace"] }); setSelectedIds([]); };
   const sorted = useMemo(() => [...(contents.data ?? [])].sort((a, b) => sort === "title" ? a.title.localeCompare(b.title, "fa") : sort === "updated" ? b.updatedAt.localeCompare(a.updatedAt) : `${a.publicationDate}${a.publicationTime ?? ""}`.localeCompare(`${b.publicationDate}${b.publicationTime ?? ""}`)), [contents.data, sort]);
   const rows = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -36,9 +39,10 @@ export function ContentListPage() {
   const selected = new Set(selectedIds);
   const toggle = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const selectPage = () => setSelectedIds(rows.every((item) => selected.has(item.id)) ? selectedIds.filter((id) => !rows.some((item) => item.id === id)) : [...new Set([...selectedIds, ...rows.map((item) => item.id)])]);
-  const applyStatus = async (nextStatus: Content["status"]) => { await Promise.all(selectedIds.map((id) => { const content = contents.data?.find((item) => item.id === id); return content ? contentRepository.moveContent(id, content.publicationDate, nextStatus) : Promise.resolve(); })); invalidate(); pushToast({ title: "وضعیت محتواهای انتخاب شده به روز شد." }); };
-  const archive = async () => { await Promise.all(selectedIds.map((id) => contentRepository.archiveContent(id))); invalidate(); pushToast({ title: "محتواهای انتخاب شده بایگانی شدند." }); };
-  const duplicate = async () => { await Promise.all(selectedIds.map((id) => contentRepository.duplicateContent(id))); invalidate(); pushToast({ title: "کپی پیش نویس محتواها ساخته شد." }); };
+  const selectedContents = () => selectedIds.map((id) => contents.data?.find((item) => item.id === id)).filter((item): item is Content => Boolean(item));
+  const applyStatus = async (nextStatus: Content["status"]) => { await Promise.all(selectedIds.map((id) => { const content = contents.data?.find((item) => item.id === id); return content ? contentRepository.moveContent(id, content.publicationDate, nextStatus) : Promise.resolve(); })); selectedContents().forEach((item) => logActivity("content.status_change", "content", item.id, item.title)); invalidate(); pushToast({ title: "وضعیت محتواهای انتخاب شده به روز شد." }); };
+  const archive = async () => { const items = selectedContents(); await Promise.all(selectedIds.map((id) => contentRepository.archiveContent(id))); items.forEach((item) => logActivity("content.archive", "content", item.id, item.title)); invalidate(); pushToast({ title: "محتواهای انتخاب شده بایگانی شدند." }); };
+  const duplicate = async () => { const items = selectedContents(); await Promise.all(selectedIds.map((id) => contentRepository.duplicateContent(id))); items.forEach((item) => logActivity("content.duplicate", "content", item.id, item.title)); invalidate(); pushToast({ title: "کپی پیش نویس محتواها ساخته شد." }); };
   const exportData = async () => { const raw = await contentRepository.exportWorkspace(); download("rooznegar-export.json", raw, "application/json"); pushToast({ title: "فایل خروجی آماده شد." }); };
   if (workspace.isLoading || contents.isLoading) return <div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton table-skeleton" /></div>;
   if (!workspace.data) return <div className="page"><EmptyState title="فهرست در دسترس نیست" description="فضای کاری را دوباره باز کنید." /></div>;
@@ -51,6 +55,6 @@ export function ContentListPage() {
   </div>;
 }
 
-function ContentRow({ content, checked, onToggle, onOpen, workspace }: { content: Content; checked: boolean; onToggle: () => void; onOpen: () => void; workspace: NonNullable<ReturnType<typeof useWorkspace>["data"]> }) { const platform = workspace.platforms.find((item) => item.id === content.platformId); const type = workspace.types.find((item) => item.id === content.typeId); const status = STATUS_META[content.status]; return <tr className="data-row" onClick={onOpen}><td onClick={(event) => event.stopPropagation()}><input type="checkbox" aria-label={`انتخاب ${content.title}`} checked={checked} onChange={onToggle} /></td><td><strong>{content.title}</strong>{content.campaignId && <small>{workspace.campaigns.find((item) => item.id === content.campaignId)?.title}</small>}</td><td>{formatJalaliDate(content.publicationDate)}<small dir="ltr">{content.publicationTime ?? ""}</small></td><td>{platform?.name ?? "-"}</td><td>{type?.name ?? "-"}</td><td><StatusBadge status={content.status} label={status.label} color={status.color} /></td><td>{({ low: "کم", normal: "عادی", high: "زیاد", urgent: "فوری" })[content.priority]}</td><td>{new Intl.DateTimeFormat("fa-IR", { dateStyle: "short" }).format(new Date(content.updatedAt))}</td></tr>; }
+function ContentRow({ content, checked, onToggle, onOpen, workspace }: { content: Content; checked: boolean; onToggle: () => void; onOpen: () => void; workspace: NonNullable<ReturnType<typeof useWorkspace>["data"]> }) { const platform = workspace.platforms.find((item) => item.id === content.platformId); const type = workspace.types.find((item) => item.id === content.typeId); const status = STATUS_META[content.status]; return <tr className="data-row" onClick={onOpen}><td onClick={(event) => event.stopPropagation()}><input type="checkbox" aria-label={`انتخاب ${content.title}`} checked={checked} onChange={onToggle} /></td><td><strong>{content.title}</strong>{content.campaignId && <small>{workspace.campaigns.find((item) => item.id === content.campaignId)?.title}</small>}</td><td>{formatJalaliDate(content.publicationDate)}<small dir="ltr">{content.publicationTime ?? ""}</small></td><td>{platform?.name ?? "-"}</td><td>{type?.name ?? "-"}</td><td><StatusBadge status={content.status} label={status.label} color={status.color} /></td><td>{({ low: "کم", normal: "عادی", high: "زیاد", urgent: "فوری" })[content.priority]}</td><td>{content.updatedByName ? <LastEditedTag updatedByName={content.updatedByName} updatedByRole={content.updatedByRole} updatedAt={content.updatedAt} /> : new Intl.DateTimeFormat("fa-IR", { dateStyle: "short" }).format(new Date(content.updatedAt))}</td></tr>; }
 
 function download(fileName: string, value: string, mimeType: string) { const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(new Blob([value], { type: `${mimeType};charset=utf-8` })); anchor.download = fileName; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(anchor.href); }

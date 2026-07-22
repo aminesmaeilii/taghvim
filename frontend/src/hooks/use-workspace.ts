@@ -4,6 +4,7 @@ import { contentRepository } from "../services/content-repository";
 
 export const workspaceKey = ["workspace"] as const;
 export const contentKey = (filters?: ContentFilters) => ["contents", filters ?? {}] as const;
+export const settingsKey = ["settings"] as const;
 
 export function useWorkspace() {
   return useQuery({ queryKey: workspaceKey, queryFn: () => contentRepository.bootstrap(), staleTime: Infinity });
@@ -11,6 +12,10 @@ export function useWorkspace() {
 
 export function useContents(filters?: ContentFilters) {
   return useQuery({ queryKey: contentKey(filters), queryFn: () => contentRepository.listContents(filters) });
+}
+
+export function useSettings() {
+  return useQuery({ queryKey: settingsKey, queryFn: () => contentRepository.getSettings() });
 }
 
 export function useSaveContent() {

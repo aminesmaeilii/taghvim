@@ -1,0 +1,18 @@
+{
+  "name": "زمبیل - تقویم محتوا",
+  "short_name": "زمبیل",
+  "description": "تقویم و برنامه ریزی محتوا",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "fa",
+  "background_color": "#f4f7f5",
+  "theme_color": "#FF334C",
+  "icons": [
+    { "src": "/icon.jpg", "sizes": "1280x1280", "type": "image/jpeg", "purpose": "any" },
+    { "src": "/icon.jpg", "sizes": "1280x1280", "type": "image/jpeg", "purpose": "maskable" }
+  ]
+}

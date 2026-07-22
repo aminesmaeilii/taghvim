@@ -1,5 +1,5 @@
 import { DEFAULT_PILLARS, DEFAULT_PLATFORMS, DEFAULT_STATUSES, DEFAULT_TYPES } from "../constants/defaults.js";
-import type { AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Platform, Tag, WorkspaceData } from "../types/domain.js";
+import type { ActivityLogEntry, AdBudget, AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, KpiEntry, LearningMaterial, PersonalNote, Platform, Tag, UserProfile, WorkspaceData } from "../types/domain.js";
 import { todayIso } from "../utils/jalali.js";
 
 export type NewContent = Omit<Content, "id" | "createdAt" | "updatedAt" | "archivedAt" | "sortOrder" | "version" | "contentVersion">;
@@ -26,6 +26,16 @@ export interface ContentRepository {
   exportWorkspace(): Promise<string>;
   importWorkspace(raw: string): Promise<{ imported: number; skipped: number; errors: string[] }>;
   backup(): Promise<string>;
+  saveProfile(profile: UserProfile): Promise<UserProfile>;
+  logActivity(entry: Omit<ActivityLogEntry, "id" | "createdAt">): Promise<ActivityLogEntry>;
+  saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">): Promise<KpiEntry>;
+  saveLearningMaterial(material: LearningMaterial): Promise<LearningMaterial>;
+  deleteLearningMaterial(id: string): Promise<void>;
+  saveHighlight(highlight: Omit<Highlight, "id" | "createdAt">): Promise<Highlight>;
+  deleteHighlight(id: string): Promise<void>;
+  savePersonalNote(note: PersonalNote): Promise<PersonalNote>;
+  deletePersonalNote(id: string): Promise<void>;
+  saveAdBudget(budget: AdBudget): Promise<AdBudget>;
 }
 
 function now(): string { return new Date().toISOString(); }
@@ -44,6 +54,8 @@ function createWorkspace(): WorkspaceData {
     types: clone(DEFAULT_TYPES),
     statuses: clone(DEFAULT_STATUSES),
     campaigns: [], tags: [], pillars: clone(DEFAULT_PILLARS), ideas: [], templates: [],
+    userProfiles: [], activityLog: [], kpiEntries: [],
+    learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [],
   };
 }
 
@@ -302,6 +314,13 @@ export class MemoryRepository implements ContentRepository {
 
   restore(snapshot: { workspace: WorkspaceData; settings: AppSettings | null }): void {
     this.data = clone(snapshot.workspace);
+    this.data.userProfiles ??= [];
+    this.data.activityLog ??= [];
+    this.data.kpiEntries ??= [];
+    this.data.learningMaterials ??= [];
+    this.data.highlights ??= [];
+    this.data.personalNotes ??= [];
+    this.data.adBudgets ??= [];
     this.settings = clone(snapshot.settings);
   }
 
@@ -388,7 +407,7 @@ export class MemoryRepository implements ContentRepository {
     try {
       const parsed = JSON.parse(raw) as { workspace?: Partial<WorkspaceData>; settings?: AppSettings | null };
       if (!parsed.workspace || typeof parsed.workspace !== "object") throw new Error("ساختار فایل پشتیبان معتبر نیست.");
-      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates"] as const;
+      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "kpiEntries", "learningMaterials", "highlights", "personalNotes", "adBudgets"] as const;
       let imported = 0;
       let skipped = 0;
       const errors: string[] = [];
@@ -412,4 +431,52 @@ export class MemoryRepository implements ContentRepository {
     } catch (error) { return { imported: 0, skipped: 0, errors: [error instanceof Error ? error.message : "خواندن فایل ممکن نشد."] }; }
   }
   async backup(): Promise<string> { return this.exportWorkspace(); }
+  async saveProfile(profile: UserProfile): Promise<UserProfile> {
+    const index = this.data.userProfiles.findIndex((item) => item.userId === profile.userId);
+    const saved: UserProfile = { ...profile, id: profile.userId, updatedAt: now() };
+    if (index >= 0) this.data.userProfiles[index] = saved; else this.data.userProfiles.push(saved);
+    return clone(saved);
+  }
+  async logActivity(entry: Omit<ActivityLogEntry, "id" | "createdAt">): Promise<ActivityLogEntry> {
+    const saved: ActivityLogEntry = { ...entry, id: id(), createdAt: now() };
+    this.data.activityLog.unshift(saved);
+    if (this.data.activityLog.length > 500) this.data.activityLog.length = 500;
+    return clone(saved);
+  }
+  async saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">): Promise<KpiEntry> {
+    const saved: KpiEntry = { ...entry, id: id(), recordedAt: now() };
+    this.data.kpiEntries.push(saved);
+    return clone(saved);
+  }
+  async saveLearningMaterial(material: LearningMaterial): Promise<LearningMaterial> {
+    const index = this.data.learningMaterials.findIndex((item) => item.id === material.id);
+    const saved: LearningMaterial = { ...material, id: material.id || id() };
+    if (index >= 0) this.data.learningMaterials[index] = saved; else this.data.learningMaterials.push(saved);
+    return clone(saved);
+  }
+  async deleteLearningMaterial(materialId: string): Promise<void> {
+    this.data.learningMaterials = this.data.learningMaterials.filter((item) => item.id !== materialId);
+    this.data.highlights = this.data.highlights.filter((item) => item.materialId !== materialId);
+  }
+  async saveHighlight(highlight: Omit<Highlight, "id" | "createdAt">): Promise<Highlight> {
+    const saved: Highlight = { ...highlight, id: id(), createdAt: now() };
+    this.data.highlights.push(saved);
+    return clone(saved);
+  }
+  async deleteHighlight(highlightId: string): Promise<void> { this.data.highlights = this.data.highlights.filter((item) => item.id !== highlightId); }
+  async savePersonalNote(note: PersonalNote): Promise<PersonalNote> {
+    const index = this.data.personalNotes.findIndex((item) => item.id === note.id);
+    const timestamp = now();
+    const saved: PersonalNote = { ...note, id: note.id || id(), createdAt: index >= 0 ? this.data.personalNotes[index].createdAt : note.createdAt || timestamp, updatedAt: timestamp };
+    if (index >= 0) this.data.personalNotes[index] = saved; else this.data.personalNotes.push(saved);
+    return clone(saved);
+  }
+  async deletePersonalNote(noteId: string): Promise<void> { this.data.personalNotes = this.data.personalNotes.filter((item) => item.id !== noteId); }
+  async saveAdBudget(budget: AdBudget): Promise<AdBudget> {
+    const index = this.data.adBudgets.findIndex((item) => item.id === budget.id);
+    const timestamp = now();
+    const saved: AdBudget = { ...budget, id: budget.id || id(), createdAt: index >= 0 ? this.data.adBudgets[index].createdAt : budget.createdAt || timestamp, updatedAt: timestamp };
+    if (index >= 0) this.data.adBudgets[index] = saved; else this.data.adBudgets.push(saved);
+    return clone(saved);
+  }
 }

@@ -1,5 +1,5 @@
 import { DndContext, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, ListFilter, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListFilter, Megaphone, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/app-shell";
@@ -11,6 +11,7 @@ import { useUIStore } from "../../stores/ui-store";
 import type { Content, ContentFilters } from "@shared/types/domain";
 import { addDays, addJalaliMonths, formatJalaliDate, formatJalaliMonth, getCurrentJalaliMonth, isoToJalaliParts, isSameJalaliMonth, JALALI_WEEKDAYS, jalaliMonthDays, startOfJalaliWeek, todayIso } from "@shared/utils/jalali";
 import { ContentDetailDrawer } from "../content/content-detail-drawer";
+import { useActivityLogger } from "../../hooks/use-profile";
 
 type CalendarView = "month" | "week" | "day" | "agenda";
 
@@ -28,6 +29,7 @@ export function CalendarPage() {
   const filters: ContentFilters = { search: search || undefined, status: status ? [status] : undefined };
   const contents = useContents(filters);
   const queryClient = useQueryClient();
+  const logActivity = useActivityLogger();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor));
   if (workspace.isLoading || contents.isLoading) return <CalendarLoading />;
   if (!workspace.data || !contents.data) return <div className="page"><EmptyState title="تقویم در دسترس نیست" description="داده های برنامه را دوباره بارگذاری کنید." /></div>;
@@ -42,6 +44,7 @@ export function CalendarPage() {
     try {
       await contentRepository.moveContent(content.id, nextDate);
       await queryClient.invalidateQueries({ queryKey: ["contents"] });
+      logActivity("content.move", "content", content.id, content.title);
       pushToast({ title: `«${content.title}» جابه جا شد.`, action: { label: "بازگردانی", onClick: () => { void contentRepository.moveContent(content.id, previousDate).then(() => queryClient.invalidateQueries({ queryKey: ["contents"] })); } } });
     } catch { pushToast({ title: "جابه جایی محتوا ممکن نشد." }); }
   };
@@ -54,6 +57,7 @@ export function CalendarPage() {
       <div className="calendar-controls"><label className="search-field"><Search size={17} /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="جستجو" /></label><label className="filter-control"><ListFilter size={16} /><Select value={status} onChange={(event) => setStatus(event.target.value as Content["status"] | "")} aria-label="فیلتر وضعیت"><option value="">همه وضعیت ها</option>{Object.entries(STATUS_META).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</Select></label></div>
     </section>
     <DndContext sensors={sensors} onDragEnd={(event) => void onDragEnd(event)}>{view === "month" && <MonthView year={year} month={month} contents={contents.data} onAdd={(date) => openContentDialog({ date, quick: true })} onSelect={setSelected} onDateSelect={selectDate} />}{view === "week" && <ScheduleView dates={Array.from({ length: 7 }, (_, index) => addDays(startOfJalaliWeek(focusDate), index))} contents={contents.data} onAdd={(date) => openContentDialog({ date, quick: true })} onSelect={setSelected} />}{view === "day" && <ScheduleView dates={[focusDate]} contents={contents.data} onAdd={(date) => openContentDialog({ date, quick: true })} onSelect={setSelected} />}{view === "agenda" && <AgendaView contents={contents.data} onSelect={setSelected} />}</DndContext>
+    {view === "month" && <MobileDayAgenda date={focusDate} contents={contents.data.filter((item) => item.publicationDate === focusDate)} onAdd={(date) => openContentDialog({ date, quick: true })} onSelect={setSelected} />}
     <ContentDetailDrawer content={selected} workspace={workspace.data} onClose={() => setSelected(null)} />
   </div>;
 }
@@ -67,13 +71,26 @@ function CalendarDay({ date, inMonth, contents, onAdd, onSelect, onDateSelect }:
   const { setNodeRef, isOver } = useDroppable({ id: `day:${date}` });
   const { jd } = isoToJalaliParts(date);
   const today = date === todayIso();
-  return <div ref={setNodeRef} className={`calendar-day ${inMonth ? "" : "outside"} ${today ? "today" : ""} ${isOver ? "drag-over" : ""}`}><div className="day-header"><button type="button" className="day-number" onClick={() => onDateSelect(date)} aria-label={`نمایش ${formatJalaliDate(date)}`}>{jd.toLocaleString("fa-IR")}</button>{inMonth && <IconButton label={`افزودن محتوا در ${formatJalaliDate(date)}`} onClick={() => onAdd(date)}><Plus size={15} /></IconButton>}</div><div className="calendar-content-list">{contents.slice(0, 3).map((item) => <DraggableCard key={item.id} content={item} onClick={() => onSelect(item)} />)}{contents.length > 3 && <span className="more-count">{(contents.length - 3).toLocaleString("fa-IR")} مورد دیگر</span>}</div></div>;
+  return <div ref={setNodeRef} className={`calendar-day ${inMonth ? "" : "outside"} ${today ? "today" : ""} ${isOver ? "drag-over" : ""}`}>
+    <button type="button" className="calendar-day-tap" onClick={() => onDateSelect(date)} aria-label={`نمایش ${formatJalaliDate(date)}`} />
+    <div className="day-header"><span className="day-number">{jd.toLocaleString("fa-IR")}</span>{inMonth && <IconButton label={`افزودن محتوا در ${formatJalaliDate(date)}`} onClick={() => onAdd(date)}><Plus size={15} /></IconButton>}</div>
+    <div className="calendar-content-list">{contents.slice(0, 3).map((item) => <DraggableCard key={item.id} content={item} onClick={() => onSelect(item)} />)}{contents.length > 3 && <span className="more-count">{(contents.length - 3).toLocaleString("fa-IR")} مورد دیگر</span>}</div>
+    {contents.length > 0 && <div className="calendar-dot-row">{contents.slice(0, 4).map((item) => <span key={item.id} className="calendar-dot" style={{ backgroundColor: STATUS_META[item.status].color }} />)}{contents.length > 4 && <span className="calendar-dot-more">+{(contents.length - 4).toLocaleString("fa-IR")}</span>}</div>}
+  </div>;
+}
+
+function MobileDayAgenda({ date, contents, onAdd, onSelect }: { date: string; contents: Content[]; onAdd: (date: string) => void; onSelect: (content: Content) => void }) {
+  return <section className="mobile-day-agenda surface" aria-label={`برنامه ${formatJalaliDate(date)}`}>
+    <header><strong>{formatJalaliDate(date, { includeWeekday: true })}</strong><Button size="sm" variant="secondary" onClick={() => onAdd(date)}><Plus size={15} />افزودن</Button></header>
+    {contents.length ? contents.map((item) => <ScheduleItem content={item} key={item.id} onClick={() => onSelect(item)} />) : <div className="schedule-empty">برنامه ای برای این روز ثبت نشده است.</div>}
+  </section>;
 }
 
 function DraggableCard({ content, onClick }: { content: Content; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: content.id });
   const status = STATUS_META[content.status];
-  return <button ref={setNodeRef} type="button" className="calendar-card" style={{ borderInlineStartColor: status.color, opacity: isDragging ? 0.45 : 1, transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined }} onClick={onClick} {...listeners} {...attributes}><span>{content.publicationTime ?? ""}</span>{content.title}</button>;
+  const isAd = content.contentKind === "advertisement";
+  return <button ref={setNodeRef} type="button" className={`calendar-card ${isAd ? "calendar-card-ad" : ""}`} style={{ borderInlineStartColor: status.color, opacity: isDragging ? 0.45 : 1, transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined }} onClick={onClick} {...listeners} {...attributes}>{isAd && <Megaphone size={10} />}<span>{content.publicationTime ?? ""}</span>{content.title}</button>;
 }
 
 function ScheduleView({ dates, contents, onAdd, onSelect }: { dates: string[]; contents: Content[]; onAdd: (date: string) => void; onSelect: (content: Content) => void }) {

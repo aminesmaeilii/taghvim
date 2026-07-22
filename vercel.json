@@ -9,6 +9,10 @@
       "destination": "/api/workspace.js"
     },
     {
+      "source": "/api/blob-upload",
+      "destination": "/api/blob-upload.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/frontend/index.html"
     }

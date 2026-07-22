@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../components/app-shell";
 import { ForcePasswordChangePage, LoginPage, ProfilePage, SessionsPage } from "../features/auth/auth-pages";
@@ -9,6 +9,10 @@ import { CalendarPage } from "../features/calendar/calendar-page";
 import { JalaliCalendarPage } from "../features/calendar/jalali-calendar-page";
 import { CampaignsPage, IdeasPage, TemplatesPage } from "../features/planning/planning-pages";
 import { ReportsPage } from "../features/reports/reports-page";
+import { ActivityPage } from "../features/activity/activity-page";
+import { AdvertisingPage } from "../features/advertising/advertising-page";
+import { EducationPage } from "../features/education/education-page";
+import { PersonalNotesPage } from "../features/notes/personal-notes-page";
 import { SettingsPage } from "../features/settings/settings-page";
 import { WorkflowPage } from "../features/workflow/workflow-page";
 import { useUIStore } from "../stores/ui-store";
@@ -17,6 +21,8 @@ import { useAuth } from "../hooks/use-auth-context";
 import { ErrorBoundary } from "./error-boundary";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
+
+const PdfReaderPage = lazy(() => import("../features/education/pdf-reader-page").then((module) => ({ default: module.PdfReaderPage })));
 
 function ShortcutHandler() {
   const { openContentDialog, closeContentDialog, pushToast } = useUIStore();
@@ -55,10 +61,15 @@ export function App() {
       <Route path="jalali-calendar" element={<JalaliCalendarPage />} />
       <Route path="contents" element={<ContentListPage />} />
       <Route path="workflow" element={<WorkflowPage />} />
+      <Route path="advertising" element={<AdvertisingPage />} />
       <Route path="campaigns" element={<CampaignsPage />} />
       <Route path="ideas" element={<IdeasPage />} />
       <Route path="templates" element={<TemplatesPage />} />
       <Route path="reports" element={<ReportsPage />} />
+      <Route path="activity" element={<ActivityPage />} />
+      <Route path="education" element={<EducationPage />} />
+      <Route path="education/:materialId" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><PdfReaderPage /></Suspense>} />
+      <Route path="notes" element={<PersonalNotesPage />} />
       <Route path="settings" element={<SettingsPage />} />
       <Route path="profile" element={<ProfilePage />} />
       <Route path="sessions" element={<SessionsPage />} />

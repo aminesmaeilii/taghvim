@@ -10,6 +10,8 @@ import type { Content, ContentStatusKey } from "@shared/types/domain";
 import { todayIso } from "@shared/utils/jalali";
 import { Button, Dialog, Field, Select, Textarea } from "../../components/ui";
 import { JalaliDateInput } from "../../components/jalali-date-input";
+import { useAuth } from "../../hooks/use-auth-context";
+import { useActivityLogger, useCurrentProfile } from "../../hooks/use-profile";
 
 const clean = (value?: string) => value?.trim() || null;
 
@@ -27,6 +29,9 @@ export function ContentEditor() {
   const { contentDialog, closeContentDialog, pushToast } = useUIStore();
   const workspace = useWorkspace();
   const save = useSaveContent();
+  const { user } = useAuth();
+  const { profile } = useCurrentProfile();
+  const logActivity = useActivityLogger();
   const [section, setSection] = useState<"basic" | "details" | "workflow">("basic");
   const existing = workspace.data?.contents.find((item) => item.id === contentDialog.contentId);
   const defaultPlatform = workspace.data?.platforms.find((item) => !item.archivedAt)?.id ?? "";
@@ -54,8 +59,10 @@ export function ContentEditor() {
       link: clean(value.link), sourceLink: null, notes: clean(value.notes), timezone: "Asia/Tehran", startDate: null, deadline: null, productionDate: null, reviewDate: null, recurrence: null,
       tagIds: [], checklist: [], attachments: [], performance: null,
     };
+    if (user) { payload.updatedByName = `${user.firstName} ${user.lastName}`.trim(); payload.updatedByRole = profile?.jobRole ?? null; }
     try {
-      await save.mutateAsync(payload);
+      const saved = await save.mutateAsync(payload);
+      logActivity(existing ? "content.update" : "content.create", "content", saved.id, saved.title);
       pushToast({ title: existing ? "تغییرات محتوا ذخیره شد." : "محتوای جدید ایجاد شد." });
       closeContentDialog();
     } catch { pushToast({ title: "ذخیره محتوا ممکن نشد. دوباره تلاش کنید." }); }

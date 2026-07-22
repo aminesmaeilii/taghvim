@@ -1,4 +1,4 @@
-import type { AppSettings, ContentStatus, ContentStatusKey, ContentType, ContentPillar, Platform } from "../types/domain.js";
+import type { AppSettings, ContentStatus, ContentStatusKey, ContentType, ContentPillar, MarketingRole, Platform } from "../types/domain.js";
 
 const base = (id: string, sortOrder: number) => ({
   id,
@@ -19,6 +19,21 @@ export const STATUS_META: Record<ContentStatusKey, { label: string; color: strin
   published: { label: "منتشر شده", color: "#15803d" },
   archived: { label: "بایگانی", color: "#475569" },
   cancelled: { label: "لغو شده", color: "#991b1b" },
+};
+
+export const MARKETING_ROLE_LABELS: Record<MarketingRole, string> = {
+  digital_marketing_manager: "مدیر دیجیتال مارکتینگ",
+  seo_specialist: "کارشناس سئو",
+  ppc_specialist: "کارشناس تبلیغات کلیکی",
+  social_media_manager: "مدیر شبکه های اجتماعی",
+  content_marketing_specialist: "کارشناس تولید محتوا",
+  email_marketing_specialist: "کارشناس ایمیل مارکتینگ",
+  marketing_automation_specialist: "کارشناس مارکتینگ اتوماسیون",
+  marketing_analyst: "تحلیل گر داده و عملکرد مارکتینگ",
+  brand_manager: "مدیر برند",
+  growth_marketer: "کارشناس گروث مارکتینگ",
+  influencer_marketing_specialist: "کارشناس اینفلوئنسر مارکتینگ",
+  affiliate_marketing_specialist: "کارشناس افیلیت مارکتینگ",
 };
 
 export const DEFAULT_STATUSES: ContentStatus[] = (Object.entries(STATUS_META) as [ContentStatusKey, { label: string; color: string }][]).map(

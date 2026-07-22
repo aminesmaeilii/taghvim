@@ -69,6 +69,8 @@ export interface Campaign extends BaseEntity {
   kpi?: string | null;
   status: "draft" | "active" | "completed" | "archived";
   notes?: string | null;
+  updatedByName?: string | null;
+  updatedByRole?: string | null;
 }
 
 export interface ChecklistItem {
@@ -135,6 +137,11 @@ export interface Content extends BaseEntity {
   attachments: Attachment[];
   contentVersion: number;
   performance?: PerformanceMetrics | null;
+  contentKind?: "content" | "advertisement";
+  adBudgetAmount?: number | null;
+  adPlatformNote?: string | null;
+  updatedByName?: string | null;
+  updatedByRole?: string | null;
 }
 
 export interface ContentIdea extends BaseEntity {
@@ -146,6 +153,8 @@ export interface ContentIdea extends BaseEntity {
   priority: Priority;
   notes?: string | null;
   score?: IdeaScore | null;
+  updatedByName?: string | null;
+  updatedByRole?: string | null;
 }
 
 export interface IdeaScoreBreakdown {
@@ -192,6 +201,8 @@ export interface ContentTemplate extends BaseEntity {
   defaultTagIds: string[];
   defaultPublishingTime?: string | null;
   brief?: string | null;
+  updatedByName?: string | null;
+  updatedByRole?: string | null;
 }
 
 export interface ContentFilters {
@@ -210,6 +221,101 @@ export interface ContentFilters {
   archived?: boolean;
 }
 
+export const MARKETING_ROLES = [
+  "digital_marketing_manager", "seo_specialist", "ppc_specialist", "social_media_manager",
+  "content_marketing_specialist", "email_marketing_specialist", "marketing_automation_specialist",
+  "marketing_analyst", "brand_manager", "growth_marketer", "influencer_marketing_specialist",
+  "affiliate_marketing_specialist",
+] as const;
+
+export type MarketingRole = typeof MARKETING_ROLES[number];
+
+export interface UserProfile {
+  id: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  jobRole?: MarketingRole | null;
+  dashboardRoles: MarketingRole[];
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  actorUserId: string;
+  actorName: string;
+  actorRole?: MarketingRole | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  entityLabel: string;
+  createdAt: string;
+}
+
+export interface KpiEntry {
+  id: string;
+  role: MarketingRole;
+  metricKey: string;
+  value: number;
+  recordedByUserId: string;
+  recordedByName: string;
+  recordedAt: string;
+}
+
+export interface LearningMaterial {
+  id: string;
+  title: string;
+  blobUrl: string;
+  uploadedByName: string;
+  uploadedAt: string;
+  sortOrder: number;
+}
+
+export interface AdBudget {
+  id: string;
+  jalaliMonth: string;
+  amount: number;
+  notes?: string | null;
+  updatedByName?: string | null;
+  updatedByRole?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HighlightRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+export interface Highlight {
+  id: string;
+  materialId: string;
+  userId: string;
+  page: number;
+  rects: HighlightRect[];
+  color: string;
+  quote: string;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface PersonalNote {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  folder: string;
+  color: string;
+  pinned: boolean;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WorkspaceData {
   contents: Content[];
   platforms: Platform[];
@@ -220,6 +326,13 @@ export interface WorkspaceData {
   pillars: ContentPillar[];
   ideas: ContentIdea[];
   templates: ContentTemplate[];
+  userProfiles: UserProfile[];
+  activityLog: ActivityLogEntry[];
+  kpiEntries: KpiEntry[];
+  learningMaterials: LearningMaterial[];
+  highlights: Highlight[];
+  personalNotes: PersonalNote[];
+  adBudgets: AdBudget[];
 }
 
 export interface AppSettings {

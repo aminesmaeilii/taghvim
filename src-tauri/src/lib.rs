@@ -59,12 +59,22 @@ fn default_workspace() -> Value {
         "id": format!("pillar-{}", index + 1), "createdAt": "1970-01-01T00:00:00.000Z", "updatedAt": "1970-01-01T00:00:00.000Z", "archivedAt": null,
         "sortOrder": index, "version": 1, "name": name, "color": "#0f766e", "description": null
     })).collect();
-    json!({ "contents": [], "platforms": platforms, "types": types, "statuses": status_values, "campaigns": [], "tags": [], "pillars": pillars, "ideas": [], "templates": [], "settings": null })
+    json!({ "contents": [], "platforms": platforms, "types": types, "statuses": status_values, "campaigns": [], "tags": [], "pillars": pillars, "ideas": [], "templates": [], "userProfiles": [], "activityLog": [], "kpiEntries": [], "learningMaterials": [], "highlights": [], "personalNotes": [], "adBudgets": [], "settings": null })
 }
 
 fn read_workspace(connection: &Connection) -> Result<Value, String> {
     let raw: Option<String> = connection.query_row("SELECT data FROM workspace_snapshots WHERE id = 1", [], |row| row.get(0)).optional().map_err(|error| error.to_string())?;
-    match raw { Some(value) => serde_json::from_str(&value).map_err(|error| error.to_string()), None => Ok(default_workspace()) }
+    let mut workspace = match raw { Some(value) => serde_json::from_str(&value).map_err(|error| error.to_string())?, None => default_workspace() };
+    if let Some(object) = workspace.as_object_mut() {
+        object.entry("userProfiles").or_insert_with(|| json!([]));
+        object.entry("activityLog").or_insert_with(|| json!([]));
+        object.entry("kpiEntries").or_insert_with(|| json!([]));
+        object.entry("learningMaterials").or_insert_with(|| json!([]));
+        object.entry("highlights").or_insert_with(|| json!([]));
+        object.entry("personalNotes").or_insert_with(|| json!([]));
+        object.entry("adBudgets").or_insert_with(|| json!([]));
+    }
+    Ok(workspace)
 }
 
 fn write_workspace(connection: &Connection, workspace: &Value) -> Result<(), String> {
@@ -258,6 +268,96 @@ fn import_workspace(state: State<'_, DbState>, raw: String) -> Result<Value, Str
 #[tauri::command]
 fn create_backup(state: State<'_, DbState>) -> Result<String, String> { export_workspace(state) }
 
+#[tauri::command]
+fn save_profile(state: State<'_, DbState>, profile: Value) -> Result<Value, String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    let user_id = profile.get("userId").and_then(Value::as_str).ok_or_else(|| "شناسه کاربر معتبر نیست.".to_string())?.to_string();
+    let mut saved = profile;
+    let object = saved.as_object_mut().ok_or_else(|| "رکورد پروفایل معتبر نیست.".to_string())?;
+    object.insert("id".to_string(), Value::String(user_id.clone()));
+    object.insert("updatedAt".to_string(), Value::String(timestamp()));
+    let list = array_mut(&mut workspace, "userProfiles")?;
+    if let Some(existing) = list.iter_mut().find(|item| item.get("userId").and_then(Value::as_str) == Some(user_id.as_str())) { *existing = saved.clone(); } else { list.push(saved.clone()); }
+    write_workspace(&connection, &workspace)?;
+    Ok(saved)
+}
+
+#[tauri::command]
+fn log_activity(state: State<'_, DbState>, entry: Value) -> Result<Value, String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    let mut saved = entry;
+    let object = saved.as_object_mut().ok_or_else(|| "رکورد فعالیت معتبر نیست.".to_string())?;
+    object.insert("id".to_string(), Value::String(uuid::Uuid::new_v4().to_string()));
+    object.insert("createdAt".to_string(), Value::String(timestamp()));
+    let list = array_mut(&mut workspace, "activityLog")?;
+    list.insert(0, saved.clone());
+    if list.len() > 500 { list.truncate(500); }
+    write_workspace(&connection, &workspace)?;
+    Ok(saved)
+}
+
+#[tauri::command]
+fn save_kpi_entry(state: State<'_, DbState>, entry: Value) -> Result<Value, String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    let mut saved = entry;
+    let object = saved.as_object_mut().ok_or_else(|| "رکورد شاخص معتبر نیست.".to_string())?;
+    object.insert("id".to_string(), Value::String(uuid::Uuid::new_v4().to_string()));
+    object.insert("recordedAt".to_string(), Value::String(timestamp()));
+    array_mut(&mut workspace, "kpiEntries")?.push(saved.clone());
+    write_workspace(&connection, &workspace)?;
+    Ok(saved)
+}
+
+#[tauri::command]
+fn save_learning_material(state: State<'_, DbState>, material: Value) -> Result<Value, String> { save_entity(&state, "learningMaterials", material) }
+
+#[tauri::command]
+fn delete_learning_material(state: State<'_, DbState>, id: String) -> Result<(), String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    array_mut(&mut workspace, "learningMaterials")?.retain(|item| item.get("id").and_then(Value::as_str) != Some(id.as_str()));
+    array_mut(&mut workspace, "highlights")?.retain(|item| item.get("materialId").and_then(Value::as_str) != Some(id.as_str()));
+    write_workspace(&connection, &workspace)
+}
+
+#[tauri::command]
+fn save_highlight(state: State<'_, DbState>, highlight: Value) -> Result<Value, String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    let mut saved = highlight;
+    let object = saved.as_object_mut().ok_or_else(|| "رکورد هایلایت معتبر نیست.".to_string())?;
+    object.insert("id".to_string(), Value::String(uuid::Uuid::new_v4().to_string()));
+    object.insert("createdAt".to_string(), Value::String(timestamp()));
+    array_mut(&mut workspace, "highlights")?.push(saved.clone());
+    write_workspace(&connection, &workspace)?;
+    Ok(saved)
+}
+
+#[tauri::command]
+fn delete_highlight(state: State<'_, DbState>, id: String) -> Result<(), String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    array_mut(&mut workspace, "highlights")?.retain(|item| item.get("id").and_then(Value::as_str) != Some(id.as_str()));
+    write_workspace(&connection, &workspace)
+}
+
+#[tauri::command]
+fn save_personal_note(state: State<'_, DbState>, note: Value) -> Result<Value, String> { save_entity(&state, "personalNotes", note) }
+
+#[tauri::command]
+fn delete_personal_note(state: State<'_, DbState>, id: String) -> Result<(), String> {
+    let connection = state.0.lock().map_err(|_| "قفل پایگاه داده آزاد نشد.".to_string())?;
+    let mut workspace = read_workspace(&connection)?;
+    array_mut(&mut workspace, "personalNotes")?.retain(|item| item.get("id").and_then(Value::as_str) != Some(id.as_str()));
+    write_workspace(&connection, &workspace)
+}
+
+#[tauri::command]
+fn save_ad_budget(state: State<'_, DbState>, budget: Value) -> Result<Value, String> { save_entity(&state, "adBudgets", budget) }
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -268,7 +368,7 @@ pub fn run() {
             app.manage(DbState(Mutex::new(connection)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![bootstrap_workspace, list_contents, save_content, archive_content, delete_content, move_content, duplicate_content, save_campaign, save_idea, save_template, delete_entity, save_reference, delete_reference, get_settings, save_settings, get_dashboard, export_workspace, import_workspace, create_backup])
+        .invoke_handler(tauri::generate_handler![bootstrap_workspace, list_contents, save_content, archive_content, delete_content, move_content, duplicate_content, save_campaign, save_idea, save_template, delete_entity, save_reference, delete_reference, get_settings, save_settings, get_dashboard, export_workspace, import_workspace, create_backup, save_profile, log_activity, save_kpi_entry, save_learning_material, delete_learning_material, save_highlight, delete_highlight, save_personal_note, delete_personal_note, save_ad_budget])
         .run(tauri::generate_context!())
         .expect("خطای اجرای روزنگار");
 }
