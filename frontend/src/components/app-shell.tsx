@@ -1,5 +1,5 @@
-import { Bell, CalendarDays, ChevronLeft, ClipboardList, FolderKanban, GanttChart, Gauge, GraduationCap, History, Lightbulb, LogOut, Megaphone, Menu, Moon, NotebookPen, PanelRightClose, Plus, Search, Settings, ShieldCheck, Sparkles, Sun, TableProperties, UserCircle, Workflow, X } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Bell, CalendarDays, ChevronLeft, ClipboardList, FolderKanban, GanttChart, Gauge, GraduationCap, History, Lightbulb, LogOut, Megaphone, Menu, Moon, MoreHorizontal, NotebookPen, PanelRightClose, Plus, Search, Settings, ShieldCheck, Sparkles, Sun, TableProperties, UserCircle, Workflow, X } from "lucide-react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useUIStore } from "../stores/ui-store";
 import { IconButton, Input } from "./ui";
@@ -18,14 +18,19 @@ const navigation = [
   ["/reports", "گزارش ها", Sparkles], ["/activity", "تاریخچه تغییرات", History], ["/settings", "تنظیمات", Settings],
 ] as const;
 
+const MOBILE_PRIMARY_ROUTES = ["/", "/calendar", "/workflow"];
+
 export function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { sidebarCollapsed, toggleSidebar, closeSidebar, theme, setTheme, openContentDialog, toasts, dismissToast } = useUIStore();
   const { user, logout } = useAuth();
   const { profile } = useCurrentProfile();
   useContentNotifications();
   useProfileSync();
   const [systemDark, setSystemDark] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   useEffect(() => {
     if (theme !== "system" || typeof window === "undefined" || !window.matchMedia) return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -34,6 +39,7 @@ export function AppShell() {
     media.addEventListener?.("change", update);
     return () => media.removeEventListener?.("change", update);
   }, [theme]);
+  useEffect(() => { setMoreOpen(false); setMobileSearchOpen(false); }, [location.pathname]);
   const resolvedTheme = theme === "system" ? (systemDark ? "dark" : "light") : theme;
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -51,15 +57,28 @@ export function AppShell() {
     <div className="workspace">
       <header className="topbar">
         <IconButton className="menu-button" label="باز کردن ناوبری" onClick={toggleSidebar}><Menu size={20} /></IconButton>
-        <form className="global-search" onSubmit={submitSearch}><Search size={18} /><Input name="q" aria-label="جستجوی سراسری" placeholder="جستجو در محتوا، برچسب و یادداشت" /><kbd>Ctrl K</kbd></form>
+        <form className={`global-search ${mobileSearchOpen ? "mobile-search-open" : ""}`} onSubmit={submitSearch}><Search size={18} /><Input name="q" aria-label="جستجوی سراسری" placeholder="جستجو در محتوا، برچسب و یادداشت" autoFocus={mobileSearchOpen} /><kbd>Ctrl K</kbd></form>
         <div className="topbar-actions">
+          <IconButton className="mobile-search-toggle" label="جستجو" onClick={() => setMobileSearchOpen((value) => !value)}><Search size={18} /></IconButton>
           <IconButton label={theme === "dark" ? "تم روشن" : "تم تاریک"} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</IconButton>
           <IconButton label="مرکز اعلان ها"><Bell size={18} /></IconButton>
           <div className="account-menu"><button type="button" className="account-trigger">{profile?.avatarUrl ? <img className="account-avatar" src={profile.avatarUrl} alt="" /> : <UserCircle size={18} />}<span>{user?.firstName ?? "کاربر"}</span></button><div className="account-popover"><button type="button" onClick={() => navigate("/profile")}><UserCircle size={16} />پروفایل</button><button type="button" onClick={() => navigate("/sessions")}><ShieldCheck size={16} />نشست ها</button><button type="button" onClick={() => void logout().then(() => navigate("/login", { replace: true }))}><LogOut size={16} />خروج</button></div></div>
-          <button className="button button-primary" type="button" onClick={() => openContentDialog({ quick: true })}><Plus size={18} />محتوای جدید</button>
+          <button className="button button-primary desktop-new-content" type="button" onClick={() => openContentDialog({ quick: true })}><Plus size={18} />محتوای جدید</button>
         </div>
       </header>
       <main id="main-content"><Outlet /></main>
+    </div>
+    <nav className="mobile-bottom-nav" aria-label="ناوبری اصلی موبایل">
+      <NavLink to="/" end className={({ isActive }) => `mobile-nav-item ${isActive ? "active" : ""}`}><Gauge size={20} /><span>داشبورد</span></NavLink>
+      <NavLink to="/calendar" className={({ isActive }) => `mobile-nav-item ${isActive ? "active" : ""}`}><CalendarDays size={20} /><span>تقویم</span></NavLink>
+      <button type="button" className="mobile-nav-fab" onClick={() => openContentDialog({ quick: true })} aria-label="محتوای جدید"><Plus size={22} /></button>
+      <NavLink to="/workflow" className={({ isActive }) => `mobile-nav-item ${isActive ? "active" : ""}`}><Workflow size={20} /><span>گردش کار</span></NavLink>
+      <button type="button" className={`mobile-nav-item ${moreOpen ? "active" : ""}`} onClick={() => setMoreOpen((value) => !value)} aria-label="بیشتر"><MoreHorizontal size={20} /><span>بیشتر</span></button>
+    </nav>
+    {moreOpen && <button type="button" className="mobile-sheet-backdrop" aria-label="بستن" onClick={() => setMoreOpen(false)} />}
+    <div className={`mobile-more-sheet ${moreOpen ? "open" : ""}`} role="dialog" aria-label="بیشتر" aria-hidden={!moreOpen}>
+      <div className="mobile-sheet-handle" />
+      <nav>{navigation.filter(([to]) => !MOBILE_PRIMARY_ROUTES.includes(to)).map(([to, label, Icon]) => <NavLink key={to} to={to} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`} onClick={() => setMoreOpen(false)}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
     </div>
     <div className="toast-region" aria-live="polite">{toasts.map((toast) => <div className="toast" key={toast.id}><span>{toast.title}</span>{toast.action && <button type="button" onClick={toast.action.onClick}>{toast.action.label}</button>}<IconButton label="بستن پیام" onClick={() => dismissToast(toast.id)}><X size={16} /></IconButton></div>)}</div>
     <ContentEditor />
