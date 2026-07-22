@@ -8,6 +8,7 @@ import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { CalendarPage } from "../features/calendar/calendar-page";
 import { JalaliCalendarPage } from "../features/calendar/jalali-calendar-page";
 import { CampaignsPage, IdeasPage, TemplatesPage } from "../features/planning/planning-pages";
+import { GanttPage } from "../features/gantt/gantt-page";
 import { ReportsPage } from "../features/reports/reports-page";
 import { ActivityPage } from "../features/activity/activity-page";
 import { AdvertisingPage } from "../features/advertising/advertising-page";
@@ -58,6 +59,7 @@ export function App() {
     <Route element={<ProtectedApp />}>
       <Route index element={<DashboardPage />} />
       <Route path="calendar" element={<CalendarPage />} />
+      <Route path="gantt" element={<GanttPage />} />
       <Route path="jalali-calendar" element={<JalaliCalendarPage />} />
       <Route path="contents" element={<ContentListPage />} />
       <Route path="workflow" element={<WorkflowPage />} />

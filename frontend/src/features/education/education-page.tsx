@@ -42,7 +42,7 @@ export function EducationPage() {
       patchMaterials((list) => [...list, saved]);
       logActivity("learning_material.upload", "learning_material", saved.id, saved.title);
       pushToast({ title: "فایل آموزشی اضافه شد." });
-    } catch { pushToast({ title: "آپلود فایل ممکن نشد." }); }
+    } catch (error) { pushToast({ title: error instanceof Error ? `آپلود فایل ممکن نشد: ${error.message}` : "آپلود فایل ممکن نشد." }); }
     finally { setUploading(false); }
   };
 
