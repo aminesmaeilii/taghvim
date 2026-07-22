@@ -94,10 +94,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationLeadMinutes: 30,
   quietHoursStart: null,
   quietHoursEnd: null,
-  ideaScoring: {
-    criteria: [],
-    penaltyKeywords: [],
-  },
 };
 
 export const PRIORITY_META = {

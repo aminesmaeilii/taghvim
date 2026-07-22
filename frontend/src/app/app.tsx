@@ -14,6 +14,7 @@ import { ActivityPage } from "../features/activity/activity-page";
 import { AdvertisingPage } from "../features/advertising/advertising-page";
 import { EducationPage } from "../features/education/education-page";
 import { PersonalNotesPage } from "../features/notes/personal-notes-page";
+import { TasksPage } from "../features/tasks/tasks-page";
 import { SettingsPage } from "../features/settings/settings-page";
 import { WorkflowPage } from "../features/workflow/workflow-page";
 import { useUIStore } from "../stores/ui-store";
@@ -72,6 +73,7 @@ export function App() {
       <Route path="education" element={<EducationPage />} />
       <Route path="education/:materialId" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><PdfReaderPage /></Suspense>} />
       <Route path="notes" element={<PersonalNotesPage />} />
+      <Route path="tasks" element={<TasksPage />} />
       <Route path="settings" element={<SettingsPage />} />
       <Route path="profile" element={<ProfilePage />} />
       <Route path="sessions" element={<SessionsPage />} />

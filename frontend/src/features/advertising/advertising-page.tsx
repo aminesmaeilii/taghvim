@@ -11,7 +11,7 @@ import { useWorkspace, workspaceKey } from "../../hooks/use-workspace";
 import { contentRepository } from "../../services/content-repository";
 import { useUIStore } from "../../stores/ui-store";
 import type { AdBudget, Content, ContentStatusKey, WorkspaceData } from "@shared/types/domain";
-import { addJalaliMonths, formatJalaliDate, formatJalaliMonth, getCurrentJalaliMonth, isSameJalaliMonth, todayIso } from "@shared/utils/jalali";
+import { addJalaliMonths, formatJalaliDate, formatJalaliMonth, getCurrentJalaliMonth, isSameJalaliMonth, jalaliToIso, todayIso } from "@shared/utils/jalali";
 
 export function AdvertisingPage() {
   const workspace = useWorkspace();
@@ -48,20 +48,28 @@ export function AdvertisingPage() {
     const amount = Number(budgetAmount || budget?.amount || 0);
     if (!amount) return;
     const now = new Date().toISOString();
-    const saved = await contentRepository.saveAdBudget({ id: budget?.id ?? crypto.randomUUID(), jalaliMonth: monthKey, amount, notes: budgetNotes.trim() || budget?.notes || null, updatedByName: user ? `${user.firstName} ${user.lastName}`.trim() : null, updatedByRole: profile?.jobRole ?? null, createdAt: budget?.createdAt ?? now, updatedAt: now });
-    patchBudgets((list) => [...list.filter((item) => item.id !== saved.id), saved]);
-    setBudgetAmount(""); setBudgetNotes("");
-    pushToast({ title: "بودجه ماهانه ذخیره شد." });
+    try {
+      const saved = await contentRepository.saveAdBudget({ id: budget?.id ?? crypto.randomUUID(), jalaliMonth: monthKey, amount, notes: budgetNotes.trim() || budget?.notes || null, updatedByName: user ? `${user.firstName} ${user.lastName}`.trim() : null, updatedByRole: profile?.jobRole ?? null, createdAt: budget?.createdAt ?? now, updatedAt: now });
+      patchBudgets((list) => [...list.filter((item) => item.id !== saved.id), saved]);
+      setBudgetAmount(""); setBudgetNotes("");
+      pushToast({ title: "بودجه ماهانه ذخیره شد." });
+    } catch (error) {
+      pushToast({ title: error instanceof Error ? error.message : "ذخیره بودجه ممکن نشد." });
+    }
   };
 
   const saveAd = async (payload: Content) => {
     const isNew = !ads.some((item) => item.id === payload.id) && !workspace.data?.contents.some((item) => item.id === payload.id);
     const stamped: Content = { ...payload, contentKind: "advertisement", updatedByName: user ? `${user.firstName} ${user.lastName}`.trim() : null, updatedByRole: profile?.jobRole ?? null };
-    const saved = await contentRepository.saveContent(stamped);
-    patchAds((list) => [...list.filter((item) => item.id !== saved.id), saved]);
-    logActivity(isNew ? "advertisement.create" : "advertisement.update", "advertisement", saved.id, saved.title);
-    setCreating(false); setEditing(null);
-    pushToast({ title: "تبلیغ ذخیره شد." });
+    try {
+      const saved = await contentRepository.saveContent(stamped);
+      patchAds((list) => [...list.filter((item) => item.id !== saved.id), saved]);
+      logActivity(isNew ? "advertisement.create" : "advertisement.update", "advertisement", saved.id, saved.title);
+      setCreating(false); setEditing(null);
+      pushToast({ title: "تبلیغ ذخیره شد." });
+    } catch (error) {
+      pushToast({ title: error instanceof Error ? error.message : "ذخیره تبلیغ ممکن نشد." });
+    }
   };
 
   return <div className="page advertising-page">
@@ -79,7 +87,7 @@ export function AdvertisingPage() {
       <StatusBadge status={ad.status} label={status.label} color={status.color} />
       <span className="ad-row-amount">{(ad.adBudgetAmount ?? 0).toLocaleString("fa-IR")} تومان</span>
     </button>; })}</section> : <EmptyState title="تبلیغی برای این ماه ثبت نشده" description="با دکمه «ثبت تبلیغ» اولین مورد این ماه را اضافه کنید." action={<Button size="sm" onClick={() => setCreating(true)}><Plus size={16} />ثبت تبلیغ</Button>} />}
-    <AdDialog open={creating || Boolean(editing)} ad={editing} defaultDate={`${monthKey}-01`} workspace={workspace.data} onClose={() => { setCreating(false); setEditing(null); }} onSave={saveAd} />
+    <AdDialog open={creating || Boolean(editing)} ad={editing} defaultDate={jalaliToIso(year, month, 1)} workspace={workspace.data} onClose={() => { setCreating(false); setEditing(null); }} onSave={saveAd} />
   </div>;
 }
 

@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, ChevronLeft, ClipboardList, FolderKanban, GanttChart, Gauge, GraduationCap, History, Lightbulb, LogOut, Megaphone, Menu, Moon, MoreHorizontal, NotebookPen, PanelRightClose, Plus, Search, Settings, ShieldCheck, Sparkles, Sun, TableProperties, UserCircle, Workflow, X } from "lucide-react";
+import { Bell, CalendarDays, CheckSquare, ChevronLeft, ClipboardList, FolderKanban, GanttChart, Gauge, GraduationCap, History, Lightbulb, LogOut, Megaphone, Menu, Moon, MoreHorizontal, NotebookPen, PanelRightClose, Plus, Search, Settings, ShieldCheck, Sparkles, Sun, TableProperties, UserCircle, Workflow, X } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useUIStore } from "../stores/ui-store";
@@ -14,6 +14,7 @@ const navigation = [
   ["/", "داشبورد", Gauge], ["/calendar", "تقویم محتوا", CalendarDays], ["/gantt", "گانت چارت", GanttChart], ["/workflow", "گردش کار", Workflow], ["/contents", "فهرست محتوا", TableProperties],
   ["/campaigns", "کمپین ها", FolderKanban], ["/ideas", "ایده ها", Lightbulb], ["/advertising", "تبلیغات", Megaphone],
   ["/templates", "قالب ها", ClipboardList], ["/education", "آموزش", GraduationCap],
+  ["/tasks", "تودو لیست تیم", CheckSquare],
   ["/notes", "یادداشت های شخصی", NotebookPen, true],
   ["/reports", "گزارش ها", Sparkles], ["/activity", "تاریخچه تغییرات", History], ["/settings", "تنظیمات", Settings],
 ] as const;

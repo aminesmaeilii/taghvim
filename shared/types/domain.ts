@@ -152,42 +152,8 @@ export interface ContentIdea extends BaseEntity {
   referenceLink?: string | null;
   priority: Priority;
   notes?: string | null;
-  score?: IdeaScore | null;
   updatedByName?: string | null;
   updatedByRole?: string | null;
-}
-
-export interface IdeaScoreBreakdown {
-  key: string;
-  label: string;
-  points: number;
-  maxPoints: number;
-  matched: string[];
-  guidance: string;
-}
-
-export interface IdeaScore {
-  total: number;
-  label: "ضعیف" | "متوسط" | "خوب" | "عالی";
-  summary: string;
-  strengths: string[];
-  risks: string[];
-  recommendations: string[];
-  breakdown: IdeaScoreBreakdown[];
-  scoredAt: string;
-}
-
-export interface IdeaScoringCriterionSetting {
-  key: string;
-  label: string;
-  maxPoints: number;
-  keywords: string[];
-  guidance: string;
-}
-
-export interface IdeaScoringSettings {
-  criteria: IdeaScoringCriterionSetting[];
-  penaltyKeywords: string[];
 }
 
 export interface ContentTemplate extends BaseEntity {
@@ -236,7 +202,6 @@ export interface UserProfile {
   displayName: string;
   avatarUrl?: string | null;
   jobRole?: MarketingRole | null;
-  dashboardRoles: MarketingRole[];
   lastSeenAt: string;
   createdAt: string;
   updatedAt: string;
@@ -252,16 +217,6 @@ export interface ActivityLogEntry {
   entityId: string;
   entityLabel: string;
   createdAt: string;
-}
-
-export interface KpiEntry {
-  id: string;
-  role: MarketingRole;
-  metricKey: string;
-  value: number;
-  recordedByUserId: string;
-  recordedByName: string;
-  recordedAt: string;
 }
 
 export interface LearningMaterial {
@@ -316,6 +271,19 @@ export interface PersonalNote {
   updatedAt: string;
 }
 
+export type TaskStatus = "todo" | "in_progress" | "done";
+
+export interface TaskItem extends BaseEntity {
+  title: string;
+  notes?: string | null;
+  assigneeUserId: string;
+  status: TaskStatus;
+  priority: Priority;
+  dueDate?: string | null;
+  createdByUserId: string;
+  createdByName?: string | null;
+}
+
 export interface WorkspaceData {
   contents: Content[];
   platforms: Platform[];
@@ -328,11 +296,11 @@ export interface WorkspaceData {
   templates: ContentTemplate[];
   userProfiles: UserProfile[];
   activityLog: ActivityLogEntry[];
-  kpiEntries: KpiEntry[];
   learningMaterials: LearningMaterial[];
   highlights: Highlight[];
   personalNotes: PersonalNote[];
   adBudgets: AdBudget[];
+  tasks: TaskItem[];
 }
 
 export interface AppSettings {
@@ -345,7 +313,6 @@ export interface AppSettings {
   notificationLeadMinutes: number;
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
-  ideaScoring: IdeaScoringSettings;
 }
 
 export interface DashboardData {

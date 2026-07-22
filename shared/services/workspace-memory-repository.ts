@@ -1,5 +1,5 @@
 import { DEFAULT_PILLARS, DEFAULT_PLATFORMS, DEFAULT_STATUSES, DEFAULT_TYPES } from "../constants/defaults.js";
-import type { ActivityLogEntry, AdBudget, AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, KpiEntry, LearningMaterial, PersonalNote, Platform, Tag, UserProfile, WorkspaceData } from "../types/domain.js";
+import type { ActivityLogEntry, AdBudget, AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, LearningMaterial, PersonalNote, Platform, Tag, TaskItem, UserProfile, WorkspaceData } from "../types/domain.js";
 import { todayIso } from "../utils/jalali.js";
 
 export type NewContent = Omit<Content, "id" | "createdAt" | "updatedAt" | "archivedAt" | "sortOrder" | "version" | "contentVersion">;
@@ -28,7 +28,6 @@ export interface ContentRepository {
   backup(): Promise<string>;
   saveProfile(profile: UserProfile): Promise<UserProfile>;
   logActivity(entry: Omit<ActivityLogEntry, "id" | "createdAt">): Promise<ActivityLogEntry>;
-  saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">): Promise<KpiEntry>;
   saveLearningMaterial(material: LearningMaterial): Promise<LearningMaterial>;
   deleteLearningMaterial(id: string): Promise<void>;
   saveHighlight(highlight: Omit<Highlight, "id" | "createdAt">): Promise<Highlight>;
@@ -36,6 +35,8 @@ export interface ContentRepository {
   savePersonalNote(note: PersonalNote): Promise<PersonalNote>;
   deletePersonalNote(id: string): Promise<void>;
   saveAdBudget(budget: AdBudget): Promise<AdBudget>;
+  saveTask(task: TaskItem): Promise<TaskItem>;
+  deleteTask(id: string): Promise<void>;
 }
 
 function now(): string { return new Date().toISOString(); }
@@ -54,8 +55,8 @@ function createWorkspace(): WorkspaceData {
     types: clone(DEFAULT_TYPES),
     statuses: clone(DEFAULT_STATUSES),
     campaigns: [], tags: [], pillars: clone(DEFAULT_PILLARS), ideas: [], templates: [],
-    userProfiles: [], activityLog: [], kpiEntries: [],
-    learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [],
+    userProfiles: [], activityLog: [],
+    learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [], tasks: [],
   };
 }
 
@@ -244,7 +245,6 @@ function seedStarterWorkspace(workspace: WorkspaceData): boolean {
       referenceLink: null,
       priority: "high",
       notes: "برای تبدیل به چند پست و استوری مناسب است.",
-      score: null,
     },
     {
       ...createBaseEntity("starter-idea-2", 1),
@@ -255,7 +255,6 @@ function seedStarterWorkspace(workspace: WorkspaceData): boolean {
       referenceLink: null,
       priority: "normal",
       notes: null,
-      score: null,
     },
   );
 
@@ -316,11 +315,11 @@ export class MemoryRepository implements ContentRepository {
     this.data = clone(snapshot.workspace);
     this.data.userProfiles ??= [];
     this.data.activityLog ??= [];
-    this.data.kpiEntries ??= [];
     this.data.learningMaterials ??= [];
     this.data.highlights ??= [];
     this.data.personalNotes ??= [];
     this.data.adBudgets ??= [];
+    this.data.tasks ??= [];
     this.settings = clone(snapshot.settings);
   }
 
@@ -407,7 +406,7 @@ export class MemoryRepository implements ContentRepository {
     try {
       const parsed = JSON.parse(raw) as { workspace?: Partial<WorkspaceData>; settings?: AppSettings | null };
       if (!parsed.workspace || typeof parsed.workspace !== "object") throw new Error("ساختار فایل پشتیبان معتبر نیست.");
-      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "kpiEntries", "learningMaterials", "highlights", "personalNotes", "adBudgets"] as const;
+      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "learningMaterials", "highlights", "personalNotes", "adBudgets", "tasks"] as const;
       let imported = 0;
       let skipped = 0;
       const errors: string[] = [];
@@ -443,11 +442,6 @@ export class MemoryRepository implements ContentRepository {
     if (this.data.activityLog.length > 500) this.data.activityLog.length = 500;
     return clone(saved);
   }
-  async saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">): Promise<KpiEntry> {
-    const saved: KpiEntry = { ...entry, id: id(), recordedAt: now() };
-    this.data.kpiEntries.push(saved);
-    return clone(saved);
-  }
   async saveLearningMaterial(material: LearningMaterial): Promise<LearningMaterial> {
     const index = this.data.learningMaterials.findIndex((item) => item.id === material.id);
     const saved: LearningMaterial = { ...material, id: material.id || id() };
@@ -479,4 +473,14 @@ export class MemoryRepository implements ContentRepository {
     if (index >= 0) this.data.adBudgets[index] = saved; else this.data.adBudgets.push(saved);
     return clone(saved);
   }
+  async saveTask(task: TaskItem): Promise<TaskItem> {
+    const index = this.data.tasks.findIndex((item) => item.id === task.id);
+    const timestamp = now();
+    const saved: TaskItem = index >= 0
+      ? { ...this.data.tasks[index], ...task, updatedAt: timestamp, version: this.data.tasks[index].version + 1 }
+      : { ...task, id: task.id || id(), createdAt: timestamp, updatedAt: timestamp, archivedAt: null, sortOrder: this.data.tasks.length, version: 1 };
+    if (index >= 0) this.data.tasks[index] = saved; else this.data.tasks.push(saved);
+    return clone(saved);
+  }
+  async deleteTask(taskId: string): Promise<void> { this.data.tasks = this.data.tasks.filter((item) => item.id !== taskId); }
 }

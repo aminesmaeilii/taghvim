@@ -10,8 +10,7 @@ import { authService } from "../../services/auth-service";
 import { contentRepository } from "../../services/content-repository";
 import { uploadFile } from "../../services/blob-storage";
 import { marketingRoleLabel } from "../../services/profile-service";
-import { MARKETING_ROLE_LABELS } from "@shared/constants/defaults";
-import { MARKETING_ROLES, type MarketingRole, type WorkspaceData } from "@shared/types/domain";
+import type { WorkspaceData } from "@shared/types/domain";
 import type { AuthSession } from "@shared/types/auth";
 import { formatJalaliDate } from "@shared/utils/jalali";
 
@@ -76,11 +75,6 @@ export function ProfilePage() {
     catch { setMessage("آپلود عکس پروفایل ممکن نشد."); }
     finally { setAvatarUploading(false); }
   };
-  const toggleDashboardRole = (role: MarketingRole) => {
-    if (!profile) return;
-    const dashboardRoles = profile.dashboardRoles.includes(role) ? profile.dashboardRoles.filter((item) => item !== role) : [...profile.dashboardRoles, role];
-    void contentRepository.saveProfile({ ...profile, dashboardRoles }).then(patchProfile);
-  };
   return <div className="page"><header className="page-header"><div><h1>پروفایل کاربری</h1><p>اطلاعات شخصی و مجاز حساب خود را مدیریت کنید.</p></div></header>
     <section className="surface profile-panel">
       <div className="profile-card">
@@ -91,7 +85,6 @@ export function ProfilePage() {
       <div className="settings-form"><Field label="نام"><Input value={firstName} onChange={(event) => setFirstName(event.target.value)} /></Field><Field label="نام خانوادگی"><Input value={lastName} onChange={(event) => setLastName(event.target.value)} /></Field><Field label="شماره تماس" optional><Input value={phone} onChange={(event) => setPhone(event.target.value)} /></Field></div>
       <footer className="dialog-footer"><Button onClick={() => void save()}>ذخیره پروفایل</Button>{message && <span className="inline-success">{message}</span>}</footer>
     </section>
-    <section className="surface profile-panel"><h2>داشبورد من</h2><p className="form-hint">تعیین کنید شاخص های کدام نقش های دیجیتال مارکتینگ در داشبورد شما نمایش داده شود.</p><div className="permission-grid">{MARKETING_ROLES.map((role) => <label key={role}><input type="checkbox" checked={profile?.dashboardRoles.includes(role) ?? false} onChange={() => toggleDashboardRole(role)} />{MARKETING_ROLE_LABELS[role]}</label>)}</div></section>
     <PasswordBox />
   </div>;
 }

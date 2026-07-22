@@ -35,7 +35,7 @@ export async function ensureProfile(user: SafeUser, profiles: UserProfile[]): Pr
   const now = new Date().toISOString();
   return contentRepository.saveProfile({
     id: user.id, userId: user.id, displayName, avatarUrl: user.avatarUrl ?? null,
-    jobRole: null, dashboardRoles: [], lastSeenAt: now, createdAt: now, updatedAt: now,
+    jobRole: null, lastSeenAt: now, createdAt: now, updatedAt: now,
   });
 }
 

@@ -1,4 +1,4 @@
-import { BellRing, ChevronDown, DatabaseBackup, Download, Edit3, Keyboard, MonitorCog, Palette, Plus, Sparkles, Trash2, Upload, Users } from "lucide-react";
+import { BellRing, DatabaseBackup, Download, Edit3, Keyboard, MonitorCog, Palette, Plus, Trash2, Upload, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/app-shell";
@@ -6,18 +6,20 @@ import { Button, Dialog, EmptyState, Field, Input, Select, Textarea } from "../.
 import { DEFAULT_SETTINGS, MARKETING_ROLE_LABELS } from "@shared/constants/defaults";
 import { contentRepository, type ReferenceEntity, type ReferenceKind } from "../../services/content-repository";
 import { useUIStore } from "../../stores/ui-store";
-import { MARKETING_ROLES, type AppSettings, type ContentPillar, type ContentType, type IdeaScoringSettings, type MarketingRole, type Platform, type Tag, type WorkspaceData } from "@shared/types/domain";
+import { MARKETING_ROLES, type AppSettings, type ContentPillar, type ContentType, type MarketingRole, type Platform, type Tag, type WorkspaceData } from "@shared/types/domain";
 import { settingsKey, workspaceKey, useWorkspace } from "../../hooks/use-workspace";
 import { useAuth } from "../../hooks/use-auth-context";
 import { ALL_PERMISSIONS, authService } from "../../services/auth-service";
-import { DEFAULT_IDEA_SCORING_CRITERIA } from "../../services/idea-scoring";
 import { getNotificationPermission, isNotificationSupported, requestNotificationPermission } from "../../services/notification-service";
 import type { AccountStatus, CreateUserInput, DataScope, RoleKey, SafeUser } from "@shared/types/auth";
+
+type SettingsTab = "display" | "notifications" | "backup" | "reference" | "users" | "shortcuts";
 
 export function SettingsPage() {
   const workspace = useWorkspace(); const { setTheme, pushToast } = useUIStore(); const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS); const [loaded, setLoaded] = useState(false); const [managerOpen, setManagerOpen] = useState(false); const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission); const input = useRef<HTMLInputElement>(null); const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
-  useEffect(() => { void contentRepository.getSettings().then((value) => { if (value) { const merged = { ...DEFAULT_SETTINGS, ...value, ideaScoring: value.ideaScoring ?? DEFAULT_SETTINGS.ideaScoring }; setSettings(merged); setTheme(merged.theme); } setLoaded(true); }); }, [setTheme]);
+  const [tab, setTab] = useState<SettingsTab>("display");
+  useEffect(() => { void contentRepository.getSettings().then((value) => { if (value) { const merged = { ...DEFAULT_SETTINGS, ...value }; setSettings(merged); setTheme(merged.theme); } setLoaded(true); }); }, [setTheme]);
   if (workspace.isLoading || !loaded) return <div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>;
   if (!workspace.data) return <div className="page"><EmptyState title="تنظیمات در دسترس نیست" description="فضای کاری را دوباره باز کنید." /></div>;
   const update = (next: Partial<AppSettings>) => { const merged = { ...settings, ...next }; setSettings(merged); if (next.theme) setTheme(next.theme); void contentRepository.saveSettings(merged).then(() => { void queryClient.invalidateQueries({ queryKey: settingsKey }); pushToast({ title: "تنظیمات ذخیره شد." }); }).catch(() => pushToast({ title: "ذخیره تنظیمات ممکن نشد." })); };
@@ -31,14 +33,32 @@ export function SettingsPage() {
   const exportData = async () => { const raw = await contentRepository.exportWorkspace(); saveFile("rooznegar-export.json", raw, "application/json"); pushToast({ title: "فایل خروجی آماده شد." }); };
   const backup = async () => { const raw = await contentRepository.backup(); saveFile(`rooznegar-backup-${new Date().toISOString().slice(0, 10)}.json`, raw, "application/json"); pushToast({ title: "پشتیبان محلی ساخته شد." }); };
   const importData = async (file?: File) => { if (!file) return; const result = await contentRepository.importWorkspace(await file.text()); await queryClient.invalidateQueries({ queryKey: ["workspace"] }); await queryClient.invalidateQueries({ queryKey: ["contents"] }); pushToast({ title: result.errors.length ? `ورود با ${result.errors.length.toLocaleString("fa-IR")} خطا تمام شد.` : `${result.imported.toLocaleString("fa-IR")} رکورد وارد شد.` }); };
+  const canManageUsers = hasPermission("users.view");
+  const tabs: { key: SettingsTab; label: string; icon: typeof Palette }[] = [
+    { key: "display", label: "نمایش", icon: Palette },
+    { key: "notifications", label: "اعلان ها", icon: BellRing },
+    { key: "backup", label: "داده و پشتیبان", icon: DatabaseBackup },
+    { key: "reference", label: "داده های مرجع", icon: MonitorCog },
+    ...(canManageUsers ? [{ key: "users" as const, label: "کاربران", icon: Users }] : []),
+    { key: "shortcuts", label: "میان برها", icon: Keyboard },
+  ];
   return <div className="page settings-page"><PageHeader title="تنظیمات" description="ظاهر، رفتار تقویم و حفاظت از داده های محلی را مدیریت کنید." />
-    <div className="settings-grid"><section className="surface settings-section"><header><Palette size={20} /><div><h2>نمایش</h2><p>ظاهر برنامه را برای محیط کار خود تنظیم کنید.</p></div></header><div className="settings-form"><Field label="تم"><Select value={settings.theme} onChange={(event) => update({ theme: event.target.value as AppSettings["theme"] })}><option value="light">روشن</option><option value="dark">تاریک</option><option value="system">مطابق سیستم</option></Select></Field><Field label="اعداد"><Select value={settings.numeralSystem} onChange={(event) => update({ numeralSystem: event.target.value as AppSettings["numeralSystem"] })}><option value="persian">فارسی</option><option value="english">انگلیسی</option></Select></Field><Field label="نمای پیش فرض تقویم"><Select value={settings.defaultCalendarView} onChange={(event) => update({ defaultCalendarView: event.target.value as AppSettings["defaultCalendarView"] })}><option value="month">ماه</option><option value="week">هفته</option><option value="day">روز</option><option value="agenda">فهرست</option></Select></Field></div></section>
-      <section className="surface settings-section"><header><BellRing size={20} /><div><h2>یادآوری</h2><p>{isNotificationSupported() ? "برای دریافت نوتیفیکیشن مرورگر، اجازه دسترسی را در همین بخش تایید کنید." : "مرورگر شما از نوتیفیکیشن پشتیبانی نمی کند؛ یادآوری ها فقط داخل برنامه نمایش داده می شوند."}</p></div></header><div className="settings-form"><label className="switch-row"><span><strong>فعال سازی اعلان ها</strong><small>یادآوری انتشار، بررسی و مهلت محتوا{settings.notificationsEnabled && notificationPermission === "denied" && " · دسترسی مرورگر مسدود است"}{settings.notificationsEnabled && notificationPermission === "granted" && " · نوتیفیکیشن مرورگر فعال است"}</small></span><input type="checkbox" checked={settings.notificationsEnabled} onChange={(event) => void toggleNotifications(event.target.checked)} /></label><Field label="مدت پیش از انتشار"><Select value={String(settings.notificationLeadMinutes)} disabled={!settings.notificationsEnabled} onChange={(event) => update({ notificationLeadMinutes: Number(event.target.value) })}><option value="15">۱۵ دقیقه</option><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="120">۲ ساعت</option></Select></Field></div></section>
-      <section className="surface settings-section"><header><DatabaseBackup size={20} /><div><h2>پشتیبان و داده</h2><p>داده ها فقط روی دستگاه شما می مانند. پشتیبان منظم را فراموش نکنید.</p></div></header><div className="settings-actions"><Button variant="secondary" onClick={() => void backup()}><DatabaseBackup size={17} />ساخت پشتیبان</Button><Button variant="secondary" onClick={() => void exportData()}><Download size={17} />خروجی JSON</Button><Button variant="secondary" onClick={() => input.current?.click()}><Upload size={17} />ورود فایل</Button><input ref={input} type="file" accept="application/json,.json" hidden onChange={(event) => void importData(event.target.files?.[0])} /></div></section>
-      <section className="surface settings-section"><header><MonitorCog size={20} /><div><h2>داده های مرجع</h2><p>نام و رنگ پلتفرم ها، نوع ها، ستون ها و برچسب ها را متناسب با تیم خود تنظیم کنید.</p></div></header><Button variant="secondary" onClick={() => setManagerOpen(true)}><Plus size={17} />مدیریت داده های مرجع</Button></section>
-      <IdeaScoringPanel value={settings.ideaScoring} onChange={(ideaScoring) => update({ ideaScoring })} />
-      {hasPermission("users.view") && <UserManagementPanel />}
-      <section className="surface settings-section"><header><Keyboard size={20} /><div><h2>میان برهای صفحه کلید</h2><p>برای کار سریع تر بدون ماوس.</p></div></header><div className="shortcut-list"><span><kbd>Ctrl / Cmd</kbd><kbd>N</kbd><b>محتوای جدید</b></span><span><kbd>Ctrl / Cmd</kbd><kbd>K</kbd><b>جستجوی سراسری</b></span><span><kbd>Esc</kbd><b>بستن پنل</b></span></div></section></div>
+    <div className="settings-shell">
+      <nav className="surface settings-sidebar" aria-label="بخش های تنظیمات">{tabs.map(({ key, label, icon: Icon }) => <button key={key} type="button" className={`settings-nav-item ${tab === key ? "active" : ""}`} onClick={() => setTab(key)} aria-current={tab === key}><Icon size={17} /><span>{label}</span></button>)}</nav>
+      <div className="settings-content">
+        {tab === "display" && <section className="surface settings-section"><header><Palette size={20} /><div><h2>نمایش</h2><p>ظاهر برنامه را برای محیط کار خود تنظیم کنید.</p></div></header><div className="settings-form"><Field label="تم"><Select value={settings.theme} onChange={(event) => update({ theme: event.target.value as AppSettings["theme"] })}><option value="light">روشن</option><option value="dark">تاریک</option><option value="system">مطابق سیستم</option></Select></Field><Field label="اعداد"><Select value={settings.numeralSystem} onChange={(event) => update({ numeralSystem: event.target.value as AppSettings["numeralSystem"] })}><option value="persian">فارسی</option><option value="english">انگلیسی</option></Select></Field><Field label="نمای پیش فرض تقویم"><Select value={settings.defaultCalendarView} onChange={(event) => update({ defaultCalendarView: event.target.value as AppSettings["defaultCalendarView"] })}><option value="month">ماه</option><option value="week">هفته</option><option value="day">روز</option><option value="agenda">فهرست</option></Select></Field></div></section>}
+
+        {tab === "notifications" && <section className="surface settings-section"><header><BellRing size={20} /><div><h2>یادآوری</h2><p>{isNotificationSupported() ? "برای دریافت نوتیفیکیشن مرورگر، اجازه دسترسی را در همین بخش تایید کنید." : "مرورگر شما از نوتیفیکیشن پشتیبانی نمی کند؛ یادآوری ها فقط داخل برنامه نمایش داده می شوند."}</p></div></header><div className="settings-form"><label className="switch-row"><span><strong>فعال سازی اعلان ها</strong><small>یادآوری انتشار، بررسی و مهلت محتوا{settings.notificationsEnabled && notificationPermission === "denied" && " · دسترسی مرورگر مسدود است"}{settings.notificationsEnabled && notificationPermission === "granted" && " · نوتیفیکیشن مرورگر فعال است"}</small></span><input type="checkbox" checked={settings.notificationsEnabled} onChange={(event) => void toggleNotifications(event.target.checked)} /></label><Field label="مدت پیش از انتشار"><Select value={String(settings.notificationLeadMinutes)} disabled={!settings.notificationsEnabled} onChange={(event) => update({ notificationLeadMinutes: Number(event.target.value) })}><option value="15">۱۵ دقیقه</option><option value="30">۳۰ دقیقه</option><option value="60">۱ ساعت</option><option value="120">۲ ساعت</option></Select></Field></div></section>}
+
+        {tab === "backup" && <section className="surface settings-section"><header><DatabaseBackup size={20} /><div><h2>پشتیبان و داده</h2><p>داده ها فقط روی دستگاه شما می مانند. پشتیبان منظم را فراموش نکنید.</p></div></header><div className="settings-actions"><Button variant="secondary" onClick={() => void backup()}><DatabaseBackup size={17} />ساخت پشتیبان</Button><Button variant="secondary" onClick={() => void exportData()}><Download size={17} />خروجی JSON</Button><Button variant="secondary" onClick={() => input.current?.click()}><Upload size={17} />ورود فایل</Button><input ref={input} type="file" accept="application/json,.json" hidden onChange={(event) => void importData(event.target.files?.[0])} /></div></section>}
+
+        {tab === "reference" && <section className="surface settings-section"><header><MonitorCog size={20} /><div><h2>داده های مرجع</h2><p>نام و رنگ پلتفرم ها، نوع ها، ستون ها و برچسب ها را متناسب با تیم خود تنظیم کنید.</p></div></header><Button variant="secondary" onClick={() => setManagerOpen(true)}><Plus size={17} />مدیریت داده های مرجع</Button></section>}
+
+        {tab === "users" && canManageUsers && <UserManagementPanel />}
+
+        {tab === "shortcuts" && <section className="surface settings-section"><header><Keyboard size={20} /><div><h2>میان برهای صفحه کلید</h2><p>برای کار سریع تر بدون ماوس.</p></div></header><div className="shortcut-list"><span><kbd>Ctrl / Cmd</kbd><kbd>N</kbd><b>محتوای جدید</b></span><span><kbd>Ctrl / Cmd</kbd><kbd>K</kbd><b>جستجوی سراسری</b></span><span><kbd>Esc</kbd><b>بستن پنل</b></span></div></section>}
+      </div>
+    </div>
     <ReferenceManager open={managerOpen} onClose={() => setManagerOpen(false)} workspace={workspace.data} />
   </div>;
 }
@@ -56,23 +76,6 @@ function UserManagementPanel() {
   return <section className="surface settings-section users-section"><header><Users size={20} /><div><h2>مدیریت کاربران</h2><p>کاربران، نقش ها، Scope داده و وضعیت حساب ها را مدیریت کنید.</p></div></header><div className="user-table">{users.map((user) => <div key={user.id}><strong>{user.firstName} {user.lastName}</strong><span>{user.username}</span><small>{user.role} · {user.status}</small><span className="user-actions">{hasPermission("users.update") && <Button size="sm" variant="secondary" onClick={() => setEditing(user)}><Edit3 size={15} />ویرایش</Button>}{hasPermission("users.disable") && <Button size="sm" variant="secondary" onClick={() => void disable(user)}>{user.status === "ACTIVE" ? "غیرفعال" : "فعال"}</Button>}{hasPermission("users.delete") && user.id !== currentUser?.id && <Button size="sm" variant="danger" onClick={() => void remove(user)}><Trash2 size={15} />حذف</Button>}</span></div>)}</div>{users.length === 0 && <p className="form-warning">کاربری برای نمایش وجود ندارد.</p>}<footer className="settings-actions">{hasPermission("users.create") && <Button variant="secondary" onClick={() => setOpen(true)}><Plus size={17} />افزودن کاربر</Button>}</footer><CreateUserDialog open={open} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); load(); }} /><EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} /></section>;
 }
 
-function IdeaScoringPanel({ value, onChange }: { value: IdeaScoringSettings; onChange: (value: IdeaScoringSettings) => void }) {
-  const [open, setOpen] = useState(false);
-  const criteria = value.criteria.length ? value.criteria : DEFAULT_IDEA_SCORING_CRITERIA;
-  const updateCriterion = (key: string, patch: Partial<IdeaScoringSettings["criteria"][number]>) => onChange({ ...value, criteria: criteria.map((item) => item.key === key ? { ...item, ...patch } : item), penaltyKeywords: value.penaltyKeywords });
-  const updateKeywords = (key: string, raw: string) => updateCriterion(key, { keywords: splitKeywords(raw) });
-  return <section className="surface settings-section users-section">
-    <button type="button" className={`settings-section-toggle${open ? " open" : ""}`} onClick={() => setOpen((current) => !current)} aria-expanded={open}>
-      <Sparkles size={20} /><div><h2>معیارهای نمره ایده</h2><p>عامل های مثبت و منفی نمره ایده را تغییر دهید تا تبدیل ایده به محتوا دقیق تر شود.</p></div><ChevronDown size={18} className="toggle-chevron" />
-    </button>
-    {open && <><div className="scoring-settings">{criteria.map((item) => <div className="scoring-rule" key={item.key}><Field label="عنوان معیار"><Input value={item.label} onChange={(event) => updateCriterion(item.key, { label: event.target.value })} /></Field><Field label="سقف امتیاز"><Input type="number" min={0} max={100} value={item.maxPoints} onChange={(event) => updateCriterion(item.key, { maxPoints: Number(event.target.value) || 0 })} /></Field><Field label="کلیدواژه های مثبت"><Textarea rows={3} value={item.keywords.join(", ")} onChange={(event) => updateKeywords(item.key, event.target.value)} /></Field><Field label="راهنمای بهبود"><Textarea rows={3} value={item.guidance} onChange={(event) => updateCriterion(item.key, { guidance: event.target.value })} /></Field></div>)}</div><Field label="کلیدواژه های کاهنده نمره"><Textarea rows={3} value={value.penaltyKeywords.join(", ")} onChange={(event) => onChange({ ...value, criteria, penaltyKeywords: splitKeywords(event.target.value) })} /></Field><footer className="settings-actions"><Button variant="secondary" onClick={() => onChange({ criteria: DEFAULT_IDEA_SCORING_CRITERIA, penaltyKeywords: [] })}>بازنشانی معیارها</Button></footer></>}
-  </section>;
-}
-
-function splitKeywords(raw: string): string[] {
-  return raw.split(/[,،\n]/).map((item) => item.trim()).filter(Boolean);
-}
-
 function EditUserDialog({ user, onClose, onSaved }: { user: SafeUser | null; onClose: () => void; onSaved: () => void }) {
   const { pushToast } = useUIStore();
   const workspace = useWorkspace();
@@ -86,7 +89,7 @@ function EditUserDialog({ user, onClose, onSaved }: { user: SafeUser | null; onC
     await authService.updateUser(user.id, { firstName: form.firstName, lastName: form.lastName, phone: form.phone || null, department: form.department || null, team: form.team || null, role: form.role, extraPermissions: form.extraPermissions, dataScope: form.dataScope, status: form.status, mustChangePassword: form.mustChangePassword, adminNotes: form.adminNotes || null });
     const existing = workspace.data?.userProfiles.find((item) => item.userId === user.id);
     const now = new Date().toISOString();
-    const savedProfile = await contentRepository.saveProfile({ id: user.id, userId: user.id, displayName: `${form.firstName} ${form.lastName}`.trim(), avatarUrl: existing?.avatarUrl ?? null, jobRole: form.jobRole || null, dashboardRoles: existing?.dashboardRoles ?? [], lastSeenAt: existing?.lastSeenAt ?? now, createdAt: existing?.createdAt ?? now, updatedAt: now });
+    const savedProfile = await contentRepository.saveProfile({ id: user.id, userId: user.id, displayName: `${form.firstName} ${form.lastName}`.trim(), avatarUrl: existing?.avatarUrl ?? null, jobRole: form.jobRole || null, lastSeenAt: existing?.lastSeenAt ?? now, createdAt: existing?.createdAt ?? now, updatedAt: now });
     queryClient.setQueryData<WorkspaceData>(workspaceKey, (current) => current ? { ...current, userProfiles: [...current.userProfiles.filter((item) => item.userId !== savedProfile.userId), savedProfile] } : current);
     pushToast({ title: "کاربر ذخیره شد." });
     onSaved();
@@ -104,7 +107,7 @@ function CreateUserDialog({ open, onClose, onSaved }: { open: boolean; onClose: 
     try {
       const created = await authService.createUser(form);
       const now = new Date().toISOString();
-      const profile = await contentRepository.saveProfile({ id: created.id, userId: created.id, displayName: `${created.firstName} ${created.lastName}`.trim(), avatarUrl: null, jobRole: jobRole || null, dashboardRoles: [], lastSeenAt: now, createdAt: now, updatedAt: now });
+      const profile = await contentRepository.saveProfile({ id: created.id, userId: created.id, displayName: `${created.firstName} ${created.lastName}`.trim(), avatarUrl: null, jobRole: jobRole || null, lastSeenAt: now, createdAt: now, updatedAt: now });
       queryClient.setQueryData<WorkspaceData>(workspaceKey, (current) => current ? { ...current, userProfiles: [...current.userProfiles, profile] } : current);
       pushToast({ title: "کاربر ایجاد شد. رمز موقت فقط همین بار در فرم قابل مشاهده بود." });
       onSaved();

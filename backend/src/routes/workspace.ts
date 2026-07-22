@@ -40,7 +40,6 @@ const MUTATIONS = new Set<keyof ContentRepository>([
   "bootstrap",
   "saveProfile",
   "logActivity",
-  "saveKpiEntry",
   "saveLearningMaterial",
   "deleteLearningMaterial",
   "saveHighlight",
@@ -48,6 +47,8 @@ const MUTATIONS = new Set<keyof ContentRepository>([
   "savePersonalNote",
   "deletePersonalNote",
   "saveAdBudget",
+  "saveTask",
+  "deleteTask",
 ]);
 
 function setCors(req: VercelRequest, res: VercelResponse): void {

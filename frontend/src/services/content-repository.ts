@@ -1,7 +1,7 @@
 import { isDesktopRuntime, platformInvoke } from "./platform";
-import { API_BASE_URL } from "./api-config";
+import { API_BASE_URL, USE_REMOTE_API } from "./api-config";
 import { MemoryRepository, type ContentRepository, type NewContent, type ReferenceEntity, type ReferenceKind } from "@shared/services/workspace-memory-repository";
-import type { ActivityLogEntry, AdBudget, AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, DashboardData, Highlight, KpiEntry, LearningMaterial, PersonalNote, UserProfile, WorkspaceData } from "@shared/types/domain";
+import type { ActivityLogEntry, AdBudget, AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, DashboardData, Highlight, LearningMaterial, PersonalNote, TaskItem, UserProfile, WorkspaceData } from "@shared/types/domain";
 
 export type { ContentRepository, ReferenceEntity, ReferenceKind };
 type BrowserSnapshot = { id: "workspace"; workspace: WorkspaceData; settings: AppSettings | null };
@@ -84,7 +84,6 @@ class BrowserRepository implements ContentRepository {
   backup() { return this.run(() => this.memory.backup()); }
   saveProfile(profile: UserProfile) { return this.run(() => this.memory.saveProfile(profile), true); }
   logActivity(entry: Omit<ActivityLogEntry, "id" | "createdAt">) { return this.run(() => this.memory.logActivity(entry), true); }
-  saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">) { return this.run(() => this.memory.saveKpiEntry(entry), true); }
   saveLearningMaterial(material: LearningMaterial) { return this.run(() => this.memory.saveLearningMaterial(material), true); }
   deleteLearningMaterial(id: string) { return this.run(() => this.memory.deleteLearningMaterial(id), true); }
   saveHighlight(highlight: Omit<Highlight, "id" | "createdAt">) { return this.run(() => this.memory.saveHighlight(highlight), true); }
@@ -92,6 +91,8 @@ class BrowserRepository implements ContentRepository {
   savePersonalNote(note: PersonalNote) { return this.run(() => this.memory.savePersonalNote(note), true); }
   deletePersonalNote(id: string) { return this.run(() => this.memory.deletePersonalNote(id), true); }
   saveAdBudget(budget: AdBudget) { return this.run(() => this.memory.saveAdBudget(budget), true); }
+  saveTask(task: TaskItem) { return this.run(() => this.memory.saveTask(task), true); }
+  deleteTask(id: string) { return this.run(() => this.memory.deleteTask(id), true); }
 }
 
 class TauriRepository implements ContentRepository {
@@ -117,7 +118,6 @@ class TauriRepository implements ContentRepository {
   backup() { return this.call<string>("create_backup"); }
   saveProfile(profile: UserProfile) { return this.call<UserProfile>("save_profile", { profile }); }
   logActivity(entry: Omit<ActivityLogEntry, "id" | "createdAt">) { return this.call<ActivityLogEntry>("log_activity", { entry }); }
-  saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">) { return this.call<KpiEntry>("save_kpi_entry", { entry }); }
   saveLearningMaterial(material: LearningMaterial) { return this.call<LearningMaterial>("save_learning_material", { material }); }
   deleteLearningMaterial(id: string) { return this.call<void>("delete_learning_material", { id }); }
   saveHighlight(highlight: Omit<Highlight, "id" | "createdAt">) { return this.call<Highlight>("save_highlight", { highlight }); }
@@ -125,6 +125,8 @@ class TauriRepository implements ContentRepository {
   savePersonalNote(note: PersonalNote) { return this.call<PersonalNote>("save_personal_note", { note }); }
   deletePersonalNote(id: string) { return this.call<void>("delete_personal_note", { id }); }
   saveAdBudget(budget: AdBudget) { return this.call<AdBudget>("save_ad_budget", { budget }); }
+  saveTask(task: TaskItem) { return this.call<TaskItem>("save_task", { task }); }
+  deleteTask(id: string) { return this.call<void>("delete_task", { id }); }
 }
 
 class ApiRepository implements ContentRepository {
@@ -162,7 +164,6 @@ class ApiRepository implements ContentRepository {
   backup() { return this.call<string>("backup"); }
   saveProfile(profile: UserProfile) { return this.call<UserProfile>("saveProfile", [profile]); }
   logActivity(entry: Omit<ActivityLogEntry, "id" | "createdAt">) { return this.call<ActivityLogEntry>("logActivity", [entry]); }
-  saveKpiEntry(entry: Omit<KpiEntry, "id" | "recordedAt">) { return this.call<KpiEntry>("saveKpiEntry", [entry]); }
   saveLearningMaterial(material: LearningMaterial) { return this.call<LearningMaterial>("saveLearningMaterial", [material]); }
   deleteLearningMaterial(id: string) { return this.call<void>("deleteLearningMaterial", [id]); }
   saveHighlight(highlight: Omit<Highlight, "id" | "createdAt">) { return this.call<Highlight>("saveHighlight", [highlight]); }
@@ -170,9 +171,11 @@ class ApiRepository implements ContentRepository {
   savePersonalNote(note: PersonalNote) { return this.call<PersonalNote>("savePersonalNote", [note]); }
   deletePersonalNote(id: string) { return this.call<void>("deletePersonalNote", [id]); }
   saveAdBudget(budget: AdBudget) { return this.call<AdBudget>("saveAdBudget", [budget]); }
+  saveTask(task: TaskItem) { return this.call<TaskItem>("saveTask", [task]); }
+  deleteTask(id: string) { return this.call<void>("deleteTask", [id]); }
 }
 
 export const contentRepository: ContentRepository = isDesktopRuntime
   ? new TauriRepository()
-  : API_BASE_URL ? new ApiRepository(API_BASE_URL)
+  : USE_REMOTE_API ? new ApiRepository(API_BASE_URL)
     : hasIndexedDb() ? new BrowserRepository() : new MemoryRepository();
