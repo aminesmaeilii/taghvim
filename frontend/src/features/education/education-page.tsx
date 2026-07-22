@@ -21,6 +21,8 @@ export function EducationPage() {
   const logActivity = useActivityLogger();
   const { pushToast } = useUIStore();
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadFileName, setUploadFileName] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const canManage = hasPermission("settings.update");
   if (workspace.isLoading) return <div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>;
@@ -35,15 +37,17 @@ export function EducationPage() {
     if (!file || !user) return;
     if (file.type !== "application/pdf") { pushToast({ title: "فقط فایل PDF قابل آپلود است." }); return; }
     setUploading(true);
+    setUploadProgress(0);
+    setUploadFileName(file.name);
     try {
-      const blobUrl = await uploadFile(file, `learning/${crypto.randomUUID()}-${file.name}`);
+      const blobUrl = await uploadFile(file, `learning/${crypto.randomUUID()}-${file.name}`, setUploadProgress);
       const material: LearningMaterial = { id: crypto.randomUUID(), title: file.name.replace(/\.pdf$/i, ""), blobUrl, uploadedByName: `${user.firstName} ${user.lastName}`.trim(), uploadedAt: new Date().toISOString(), sortOrder: materials.length };
       const saved = await contentRepository.saveLearningMaterial(material);
       patchMaterials((list) => [...list, saved]);
       logActivity("learning_material.upload", "learning_material", saved.id, saved.title);
       pushToast({ title: "فایل آموزشی اضافه شد." });
     } catch (error) { pushToast({ title: error instanceof Error ? `آپلود فایل ممکن نشد: ${error.message}` : "آپلود فایل ممکن نشد." }); }
-    finally { setUploading(false); }
+    finally { setUploading(false); setUploadProgress(0); setUploadFileName(""); }
   };
 
   const remove = async (material: LearningMaterial) => {
@@ -56,6 +60,7 @@ export function EducationPage() {
 
   return <div className="page education-page">
     <PageHeader title="آموزش" description="فایل های آموزشی تیم را بخوانید، هایلایت کنید و یادداشت بگذارید." actions={canManage ? <><input ref={fileInput} type="file" accept="application/pdf" hidden onChange={(event) => void upload(event.target.files?.[0])} /><Button onClick={() => fileInput.current?.click()} disabled={uploading}><Plus size={18} />{uploading ? "در حال آپلود" : "افزودن فایل PDF"}</Button></> : undefined} />
+    {uploading && <section className="surface upload-progress-panel"><div className="upload-progress-info"><span>{uploadFileName}</span><strong>{Math.round(uploadProgress).toLocaleString("fa-IR")}٪</strong></div><div className="progress-track"><span style={{ width: `${uploadProgress}%` }} /></div></section>}
     {materials.length ? <section className="surface education-list">{materials.map((material) => <div className="education-row" key={material.id}>
       <button type="button" className="education-row-main" onClick={() => navigate(`/education/${material.id}`)}><FileText size={20} /><div><strong>{material.title}</strong><small>افزوده شده توسط {material.uploadedByName} در {formatJalaliDate(material.uploadedAt)}</small></div></button>
       {canManage && <button type="button" className="education-row-delete" aria-label={`حذف ${material.title}`} onClick={() => void remove(material)}><Trash2 size={16} /></button>}
