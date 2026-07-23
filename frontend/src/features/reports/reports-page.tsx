@@ -1,8 +1,8 @@
-import { AlertTriangle, Download, Eye, FileSpreadsheet, Gauge, Goal, Layers3, LineChart, Printer, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { AlertTriangle, Download, Eye, Gauge, Goal, Layers3, LineChart, Printer, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "../../components/app-shell";
-import { Button, EmptyState, Field, Input, Select } from "../../components/ui";
+import { Button, EmptyState, Field, Select } from "../../components/ui";
 import { JalaliDateInput } from "../../components/jalali-date-input";
 import { useAuth } from "../../hooks/use-auth-context";
 import { useWorkspace } from "../../hooks/use-workspace";
@@ -19,31 +19,24 @@ export function ReportsPage() {
   const workspace = useWorkspace();
   const [mode, setMode] = useState<ReportMode>("overview");
   const [presentation, setPresentation] = useState(false);
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [preset, setPreset] = useState<Preset>("30");
   const [filters, setFilters] = useState<ReportFilters>(() => readFilters());
 
   useEffect(() => sessionStorage.setItem("report-filters", JSON.stringify(filters)), [filters]);
-  useEffect(() => setPage(1), [filters, query, mode]);
   useEffect(() => {
     if (preset === "custom") return;
     setFilters((current) => ({ ...current, ...presetRange(preset) }));
   }, [preset]);
 
   const report = useQuery({
-    queryKey: ["report-snapshot", filters, user?.id, page],
-    queryFn: () => contentRepository.reportSnapshot(filters, user ?? undefined, page, 25),
+    queryKey: ["report-snapshot", filters, user?.id],
+    queryFn: () => contentRepository.reportSnapshot(filters, user ?? undefined, 1, 25),
     enabled: Boolean(user?.permissions.includes("reports.view")),
     staleTime: 20_000,
   });
 
   const data = report.data;
-  const filteredRows = useMemo(() => {
-    const rows = data?.table.rows ?? [];
-    const needle = query.trim().toLocaleLowerCase("fa");
-    return needle ? rows.filter((row) => [row.title, row.owner, row.status, row.risk].join(" ").toLocaleLowerCase("fa").includes(needle)) : rows;
-  }, [data?.table.rows, query]);
 
   if (!user?.permissions.includes("reports.view")) return <div className="page"><EmptyState title="دسترسی ندارید" description="برای مشاهده گزارش ها باید مجوز reports.view داشته باشید." /></div>;
   if (workspace.isLoading || report.isLoading) return <div className="page reports-page"><div className="skeleton heading-skeleton" /><div className="reports-skeleton-grid"><div className="skeleton panel-skeleton" /><div className="skeleton panel-skeleton" /><div className="skeleton panel-skeleton" /></div></div>;
@@ -53,21 +46,20 @@ export function ReportsPage() {
   return <div className={`page reports-page ${presentation ? "reports-presentation" : ""}`}>
     {!presentation && <PageHeader title="گزارش ها" description="داشبورد هوشمندی عملیاتی برای تصمیم گیری روزمره، مدیریتی و ارائه رسمی." actions={<>
       <Button variant="secondary" onClick={() => report.refetch()}><RefreshCw size={16} />به روزرسانی</Button>
+      <Button variant="secondary" onClick={() => setFiltersOpen((value) => !value)}><SlidersHorizontal size={16} />فیلترها</Button>
       <Button variant="secondary" onClick={() => setPresentation(true)}><Eye size={16} />حالت ارائه</Button>
       <Button variant="secondary" onClick={() => window.print()}><Printer size={16} />چاپ</Button>
-      <Button onClick={() => exportCsv(data, filteredRows)} disabled={!canExport}><Download size={16} />CSV</Button>
+      <Button onClick={() => exportCsv(data, data.table.rows)} disabled={!canExport}><Download size={16} />CSV</Button>
     </>} />}
 
     {presentation && <header className="presentation-header surface"><div><img src="/icon.jpg" alt="" /><span>زَمبیل</span></div><strong>{formatJalaliDate(data.filters.fromDate)} تا {formatJalaliDate(data.filters.toDate)}</strong><Button variant="secondary" size="sm" onClick={() => setPresentation(false)}>خروج از ارائه</Button></header>}
 
-    {!presentation && <FilterBar workspace={workspace.data} filters={filters} preset={preset} setPreset={setPreset} onChange={setFilters} />}
     {!presentation && <div className="report-mode-tabs">{(Object.keys(modeLabels) as ReportMode[]).map((item) => <button key={item} className={mode === item ? "active" : ""} onClick={() => setMode(item)}>{modeLabels[item]}</button>)}</div>}
+    {!presentation && filtersOpen && <div className="report-filter-popover"><FilterBar workspace={workspace.data} filters={filters} preset={preset} setPreset={setPreset} onChange={setFilters} /></div>}
 
-    <ExecutiveSummary data={data} />
     {mode === "overview" && <Overview data={data} presentation={presentation} />}
     {mode === "operations" && <Operations data={data} />}
     {mode === "collaboration" && <Collaboration data={data} />}
-    {!presentation && <Details data={data} rows={filteredRows} query={query} setQuery={setQuery} page={page} setPage={setPage} canExport={canExport} />}
   </div>;
 }
 
@@ -87,11 +79,6 @@ function FilterBar({ workspace, filters, preset, setPreset, onChange }: { worksp
     <Field label="مقایسه" optional><Select value={filters.comparisonMode} onChange={(event) => update({ comparisonMode: event.target.value as ReportFilters["comparisonMode"] })}><option value="previous_period">دوره قبل</option><option value="none">بدون مقایسه</option></Select></Field>
     <Button variant="secondary" onClick={() => { setPreset("30"); onChange(defaultReportFilters()); }}>بازنشانی</Button>
   </section>;
-}
-
-function ExecutiveSummary({ data }: { data: ReportSnapshot }) {
-  const completeness = data.dataCompleteness === "complete" ? "کامل" : data.dataCompleteness === "partial" ? "نسبی" : "ناکافی";
-  return <section className="surface executive-summary"><div><span>خلاصه مدیریتی</span><h2>{data.summary}</h2></div><dl><div><dt>دوره گزارش</dt><dd>{formatJalaliDate(data.filters.fromDate)} تا {formatJalaliDate(data.filters.toDate)}</dd></div><div><dt>دوره مقایسه</dt><dd>{data.comparisonPeriod ? `${formatJalaliDate(data.comparisonPeriod.fromDate)} تا ${formatJalaliDate(data.comparisonPeriod.toDate)}` : "غیرفعال"}</dd></div><div><dt>آخرین به روزرسانی</dt><dd>{formatJalaliDate(data.generatedAt)}</dd></div><div><dt>کیفیت داده</dt><dd>{completeness}</dd></div></dl></section>;
 }
 
 function Overview({ data, presentation }: { data: ReportSnapshot; presentation: boolean }) {
@@ -146,10 +133,6 @@ function TrendPanel({ data }: { data: ReportSnapshot }) {
 
 function DataQuality({ data }: { data: ReportSnapshot }) {
   return <section className="surface data-quality-panel"><header><ShieldCheck size={19} /><h2>کیفیت داده</h2></header>{data.dataQuality.map((item) => <div key={item.key}><strong>{toPersianDigits(item.count)}</strong><span>{item.label}</span><small>{item.explanation}</small></div>)}</section>;
-}
-
-function Details({ data, rows, query, setQuery, page, setPage, canExport }: { data: ReportSnapshot; rows: ReportTableRow[]; query: string; setQuery: (value: string) => void; page: number; setPage: (value: number) => void; canExport: boolean }) {
-  return <section className="surface report-detail-table"><header><div><FileSpreadsheet size={19} /><h2>جدول جزئیات قابل بررسی</h2></div><label><Search size={15} /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="جستجو در ردیف ها" /></label></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>نوع</th><th>عنوان</th><th>مسئول</th><th>وضعیت</th><th>تاریخ</th><th>ریسک</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.kind}-${row.id}`} className="data-row"><td data-label="نوع">{kindLabel(row.kind)}</td><td data-label="عنوان"><strong>{row.title}</strong></td><td data-label="مسئول">{row.owner}</td><td data-label="وضعیت">{row.status}</td><td data-label="تاریخ">{formatJalaliDate(row.date)}</td><td data-label="ریسک">{row.risk ?? "ندارد"}</td></tr>)}</tbody></table></div>{!rows.length && <EmptyState title="ردیفی پیدا نشد" description="فیلتر یا عبارت جستجو را تغییر دهید." />}<footer><span>{toPersianDigits(data.table.total)} ردیف واقعی</span><div><Button variant="secondary" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>قبلی</Button><Button variant="secondary" size="sm" onClick={() => setPage(page + 1)} disabled={page * data.table.pageSize >= data.table.total}>بعدی</Button><Button size="sm" onClick={() => exportCsv(data, rows)} disabled={!canExport}>خروجی ردیف ها</Button></div></footer></section>;
 }
 
 function MetricMini({ item }: { item?: ReportKpi }) { return <article><span>{item?.label ?? "نامشخص"}</span><strong>{item ? formatMetric(item) : "داده کافی وجود ندارد"}</strong><small>{item ? formatChange(item) : "هدف/داده ای ثبت نشده است"}</small></article>; }
