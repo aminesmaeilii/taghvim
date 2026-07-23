@@ -38,6 +38,10 @@ vite-localhost*.log
 .cache/
 .tmp/
 tmp/
+
+# Local fallback workspace snapshot (used only when Upstash Redis isn't configured)
+backend/.data/
+.data/
 temp/
 
 # OS and editor files

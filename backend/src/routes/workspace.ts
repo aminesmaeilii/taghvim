@@ -1,4 +1,6 @@
 import { Redis } from "@upstash/redis";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { MemoryRepository, type ContentRepository } from "../../../shared/services/workspace-memory-repository.js";
 
 type VercelRequest = {
@@ -22,7 +24,13 @@ type RpcBody = {
 };
 
 const SNAPSHOT_KEY = "taghvim:workspace:v1";
+// Fallback persistence for when Upstash Redis isn't configured: without this, every request
+// starts from a brand-new in-memory repository and nothing a user saves survives past that
+// single HTTP response. A local file at least survives across requests on a persistent
+// long-running process (e.g. Render's Node service) — it just won't survive a redeploy/restart.
+const SNAPSHOT_FILE = join(process.cwd(), ".data", "workspace-snapshot.json");
 let redis: Redis | null = null;
+let fileWriteQueue: Promise<void> = Promise.resolve();
 const MUTATIONS = new Set<keyof ContentRepository>([
   "saveContent",
   "archiveContent",
@@ -67,17 +75,46 @@ function setCors(req: VercelRequest, res: VercelResponse): void {
   res.setHeader("access-control-allow-headers", "content-type, authorization");
 }
 
+async function readFileSnapshot(): Promise<Snapshot | null> {
+  try {
+    return JSON.parse(await readFile(SNAPSHOT_FILE, "utf8")) as Snapshot;
+  } catch {
+    return null;
+  }
+}
+
+async function writeFileSnapshot(snapshot: Snapshot): Promise<void> {
+  // Serialize writes so concurrent requests can't interleave and corrupt the file.
+  fileWriteQueue = fileWriteQueue
+    .then(async () => {
+      await mkdir(join(process.cwd(), ".data"), { recursive: true });
+      await writeFile(SNAPSHOT_FILE, JSON.stringify(snapshot), "utf8");
+    })
+    .catch((error) => {
+      console.error("Failed to write local workspace snapshot:", error instanceof Error ? error.message : error);
+    });
+  await fileWriteQueue;
+}
+
 async function loadSnapshot(repository: MemoryRepository): Promise<void> {
   const client = getRedis();
-  if (!client) return;
-  const snapshot = await client.get<Snapshot>(SNAPSHOT_KEY);
+  if (client) {
+    const snapshot = await client.get<Snapshot>(SNAPSHOT_KEY);
+    if (snapshot) repository.restore(snapshot);
+    return;
+  }
+  const snapshot = await readFileSnapshot();
   if (snapshot) repository.restore(snapshot);
 }
 
 async function saveSnapshot(repository: MemoryRepository): Promise<void> {
+  const snapshot = repository.snapshot();
   const client = getRedis();
-  if (!client) return;
-  await client.set(SNAPSHOT_KEY, repository.snapshot());
+  if (client) {
+    await client.set(SNAPSHOT_KEY, snapshot);
+    return;
+  }
+  await writeFileSnapshot(snapshot);
 }
 
 function getRedis(): Redis | null {
