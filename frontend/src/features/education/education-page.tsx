@@ -10,6 +10,7 @@ import { useWorkspace, workspaceKey } from "../../hooks/use-workspace";
 import { contentRepository } from "../../services/content-repository";
 import { uploadFile } from "../../services/blob-storage";
 import { useUIStore } from "../../stores/ui-store";
+import { ForwardButton } from "../chat/forward-button";
 import type { LearningMaterial, WorkspaceData } from "@shared/types/domain";
 import { formatJalaliDate } from "@shared/utils/jalali";
 
@@ -63,6 +64,7 @@ export function EducationPage() {
     {uploading && <section className="surface upload-progress-panel"><div className="upload-progress-info"><span>{uploadFileName}</span><strong>{Math.round(uploadProgress).toLocaleString("fa-IR")}٪</strong></div><div className="progress-track"><span style={{ width: `${uploadProgress}%` }} /></div></section>}
     {materials.length ? <section className="surface education-list">{materials.map((material) => <div className="education-row" key={material.id}>
       <button type="button" className="education-row-main" onClick={() => navigate(`/education/${material.id}`)}><FileText size={20} /><div><strong>{material.title}</strong><small>افزوده شده توسط {material.uploadedByName} در {formatJalaliDate(material.uploadedAt)}</small></div></button>
+      <ForwardButton entity={{ type: "learning_material", id: material.id, title: material.title, label: "فایل آموزشی", description: `افزوده شده توسط ${material.uploadedByName}` }} />
       {canManage && <button type="button" className="education-row-delete" aria-label={`حذف ${material.title}`} onClick={() => void remove(material)}><Trash2 size={16} /></button>}
     </div>)}</section> : <EmptyState title="هنوز فایل آموزشی اضافه نشده" description="فایل های PDF آموزشی تیم را اینجا اضافه کنید تا همه بتوانند مطالعه کنند." action={canManage ? <Button size="sm" onClick={() => fileInput.current?.click()}><Upload size={16} />افزودن فایل</Button> : undefined} />}
   </div>;

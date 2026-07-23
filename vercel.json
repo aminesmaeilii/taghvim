@@ -13,6 +13,10 @@
       "destination": "/api/blob-upload.js"
     },
     {
+      "source": "/api/reminders-process",
+      "destination": "/api/reminders-process.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/frontend/index.html"
     }

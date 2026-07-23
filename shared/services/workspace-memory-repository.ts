@@ -1,5 +1,7 @@
 import { DEFAULT_PILLARS, DEFAULT_PLATFORMS, DEFAULT_STATUSES, DEFAULT_TYPES } from "../constants/defaults.js";
-import type { ActivityLogEntry, AdBudget, AppSettings, Campaign, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, LearningMaterial, PersonalNote, Platform, Tag, TaskItem, UserProfile, WorkspaceData } from "../types/domain.js";
+import { buildReportSnapshot } from "./report-metrics.js";
+import type { SafeUser } from "../types/auth.js";
+import type { ActivityLogEntry, AdBudget, AppNotification, AppSettings, Campaign, ChatContextType, ChatConversation, ChatConversationMember, ChatConversationSummary, ChatMemberRole, ChatMessage, ChatMessagePage, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, LearningMaterial, PersonalNote, PushSubscriptionRecord, Reminder, ReminderRelatedEntityType, ReportFilters, ReportSnapshot, TaskItem, UserProfile, WorkspaceData, Platform, Tag } from "../types/domain.js";
 import { todayIso } from "../utils/jalali.js";
 
 export type NewContent = Omit<Content, "id" | "createdAt" | "updatedAt" | "archivedAt" | "sortOrder" | "version" | "contentVersion">;
@@ -23,6 +25,7 @@ export interface ContentRepository {
   getSettings(): Promise<AppSettings | null>;
   saveSettings(settings: AppSettings): Promise<void>;
   dashboard(): Promise<DashboardData>;
+  reportSnapshot(filters: ReportFilters, viewer?: Pick<SafeUser, "id" | "role" | "team" | "dataScope" | "permissions">, page?: number, pageSize?: number): Promise<ReportSnapshot>;
   exportWorkspace(): Promise<string>;
   importWorkspace(raw: string): Promise<{ imported: number; skipped: number; errors: string[] }>;
   backup(): Promise<string>;
@@ -37,6 +40,24 @@ export interface ContentRepository {
   saveAdBudget(budget: AdBudget): Promise<AdBudget>;
   saveTask(task: TaskItem): Promise<TaskItem>;
   deleteTask(id: string): Promise<void>;
+  listChatConversations(userId: string): Promise<ChatConversationSummary[]>;
+  listChatMessages(userId: string, conversationId: string, cursor?: string | null, limit?: number): Promise<ChatMessagePage>;
+  createDirectChat(userId: string, peerUserId: string): Promise<ChatConversationSummary>;
+  createGroupChat(userId: string, title: string, memberIds: string[]): Promise<ChatConversationSummary>;
+  sendChatMessage(userId: string, conversationId: string, body: string, clientMessageId: string, context?: { type: ChatContextType; id: string; metadata?: Record<string, string> | null }): Promise<ChatMessage>;
+  markChatRead(userId: string, conversationId: string): Promise<void>;
+  purgeUserData(userId: string): Promise<void>;
+  listNotifications(userId: string, cursor?: string | null, limit?: number): Promise<{ notifications: AppNotification[]; unreadCount: number; nextCursor?: string | null }>;
+  markNotificationRead(userId: string, notificationId: string): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
+  saveReminder(reminder: Reminder): Promise<Reminder>;
+  listReminders(userId: string, relatedEntityType?: ReminderRelatedEntityType, relatedEntityId?: string): Promise<Reminder[]>;
+  cancelReminder(userId: string, reminderId: string): Promise<void>;
+  snoozeReminder(userId: string, reminderId: string, minutes: number): Promise<Reminder>;
+  savePushSubscription(subscription: PushSubscriptionRecord): Promise<PushSubscriptionRecord>;
+  revokePushSubscription(userId: string, subscriptionId: string): Promise<void>;
+  listPushSubscriptions(userId: string): Promise<PushSubscriptionRecord[]>;
+  processDueReminders(atUtc?: string): Promise<{ processed: number; notificationsCreated: number; failed: number }>;
 }
 
 function now(): string { return new Date().toISOString(); }
@@ -56,7 +77,7 @@ function createWorkspace(): WorkspaceData {
     statuses: clone(DEFAULT_STATUSES),
     campaigns: [], tags: [], pillars: clone(DEFAULT_PILLARS), ideas: [], templates: [],
     userProfiles: [], activityLog: [],
-    learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [], tasks: [],
+    learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [], tasks: [], chatConversations: [], chatMembers: [], chatMessages: [], reminders: [], pushSubscriptions: [], notifications: [],
   };
 }
 
@@ -320,6 +341,12 @@ export class MemoryRepository implements ContentRepository {
     this.data.personalNotes ??= [];
     this.data.adBudgets ??= [];
     this.data.tasks ??= [];
+    this.data.chatConversations ??= [];
+    this.data.chatMembers ??= [];
+    this.data.chatMessages ??= [];
+    this.data.reminders ??= [];
+    this.data.pushSubscriptions ??= [];
+    this.data.notifications ??= [];
     this.settings = clone(snapshot.settings);
   }
 
@@ -401,12 +428,16 @@ export class MemoryRepository implements ContentRepository {
       recentlyPublished: active.filter((item) => item.status === "published").slice(0, 5),
     });
   }
+  async reportSnapshot(filters: ReportFilters, viewer?: Pick<SafeUser, "id" | "role" | "team" | "dataScope" | "permissions">, page?: number, pageSize?: number): Promise<ReportSnapshot> {
+    if (viewer && !viewer.permissions.includes("reports.view")) throw new Error("به گزارش ها دسترسی ندارید.");
+    return buildReportSnapshot(this.data, filters, viewer, page, pageSize);
+  }
   async exportWorkspace(): Promise<string> { return JSON.stringify({ version: 1, exportedAt: now(), workspace: this.data, settings: this.settings }, null, 2); }
   async importWorkspace(raw: string): Promise<{ imported: number; skipped: number; errors: string[] }> {
     try {
       const parsed = JSON.parse(raw) as { workspace?: Partial<WorkspaceData>; settings?: AppSettings | null };
       if (!parsed.workspace || typeof parsed.workspace !== "object") throw new Error("ساختار فایل پشتیبان معتبر نیست.");
-      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "learningMaterials", "highlights", "personalNotes", "adBudgets", "tasks"] as const;
+      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "learningMaterials", "highlights", "personalNotes", "adBudgets", "tasks", "chatConversations", "chatMembers", "chatMessages", "reminders", "pushSubscriptions", "notifications"] as const;
       let imported = 0;
       let skipped = 0;
       const errors: string[] = [];
@@ -483,4 +514,166 @@ export class MemoryRepository implements ContentRepository {
     return clone(saved);
   }
   async deleteTask(taskId: string): Promise<void> { this.data.tasks = this.data.tasks.filter((item) => item.id !== taskId); }
+  async listChatConversations(userId: string): Promise<ChatConversationSummary[]> {
+    return clone(this.data.chatMembers.filter((member) => member.userId === userId).map((member) => this.chatSummary(member.conversationId, userId)).filter(Boolean).sort((a, b) => (b?.conversation.lastMessageAt ?? b?.conversation.updatedAt ?? "").localeCompare(a?.conversation.lastMessageAt ?? a?.conversation.updatedAt ?? "")) as ChatConversationSummary[]);
+  }
+  async listChatMessages(userId: string, conversationId: string, cursor?: string | null, limit = 40): Promise<ChatMessagePage> {
+    this.requireChatMember(userId, conversationId);
+    const boundedLimit = Math.min(Math.max(limit, 1), 80);
+    const sorted = this.data.chatMessages.filter((message) => message.conversationId === conversationId && !message.deletedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const start = cursor ? sorted.findIndex((message) => message.id === cursor) + 1 : 0;
+    const page = sorted.slice(Math.max(start, 0), Math.max(start, 0) + boundedLimit);
+    const nextCursor = page.length === boundedLimit ? page[page.length - 1]?.id ?? null : null;
+    return clone({ messages: page.reverse(), nextCursor });
+  }
+  async createDirectChat(userId: string, peerUserId: string): Promise<ChatConversationSummary> {
+    if (userId === peerUserId) throw new Error("گفتگوی مستقیم با خودتان ممکن نیست.");
+    if (!this.data.userProfiles.some((profile) => profile.userId === peerUserId)) throw new Error("عضو تیم پیدا نشد.");
+    const directKey = [userId, peerUserId].sort().join(":");
+    const existing = this.data.chatConversations.find((conversation) => conversation.type === "DIRECT" && conversation.directKey === directKey);
+    if (existing) return clone(this.chatSummary(existing.id, userId));
+    const timestamp = now();
+    const conversation: ChatConversation = { id: id(), type: "DIRECT", title: null, avatarUrl: null, createdBy: userId, createdAt: timestamp, updatedAt: timestamp, lastMessageAt: null, directKey };
+    this.data.chatConversations.push(conversation);
+    this.data.chatMembers.push({ conversationId: conversation.id, userId, role: "MEMBER", joinedAt: timestamp, lastReadAt: timestamp }, { conversationId: conversation.id, userId: peerUserId, role: "MEMBER", joinedAt: timestamp, lastReadAt: null });
+    return clone(this.chatSummary(conversation.id, userId));
+  }
+  async createGroupChat(userId: string, title: string, memberIds: string[]): Promise<ChatConversationSummary> {
+    const cleanTitle = sanitizeText(title).slice(0, 80);
+    const uniqueMemberIds = [...new Set([userId, ...memberIds])].filter((memberId) => this.data.userProfiles.some((profile) => profile.userId === memberId));
+    if (cleanTitle.length < 2) throw new Error("نام گروه باید حداقل دو کاراکتر باشد.");
+    if (uniqueMemberIds.length < 2) throw new Error("گروه باید حداقل دو عضو داشته باشد.");
+    const timestamp = now();
+    const conversation: ChatConversation = { id: id(), type: "GROUP", title: cleanTitle, avatarUrl: null, createdBy: userId, createdAt: timestamp, updatedAt: timestamp, lastMessageAt: null, directKey: null };
+    this.data.chatConversations.push(conversation);
+    this.data.chatMembers.push(...uniqueMemberIds.map((memberId) => ({ conversationId: conversation.id, userId: memberId, role: (memberId === userId ? "OWNER" : "MEMBER") as ChatMemberRole, joinedAt: timestamp, lastReadAt: memberId === userId ? timestamp : null })));
+    return clone(this.chatSummary(conversation.id, userId));
+  }
+  async sendChatMessage(userId: string, conversationId: string, body: string, clientMessageId: string, context?: { type: ChatContextType; id: string; metadata?: Record<string, string> | null }): Promise<ChatMessage> {
+    this.requireChatMember(userId, conversationId);
+    const cleanBody = sanitizeText(body).slice(0, 4000);
+    if (!cleanBody) throw new Error("پیام خالی قابل ارسال نیست.");
+    const duplicate = this.data.chatMessages.find((message) => message.conversationId === conversationId && message.senderId === userId && message.clientMessageId === clientMessageId);
+    if (duplicate) return clone(duplicate);
+    const timestamp = now();
+    const message: ChatMessage = { id: id(), conversationId, senderId: userId, messageType: "TEXT", body: cleanBody, contextType: context?.type ?? null, contextId: context?.id ?? null, contextMetadata: context?.metadata ?? null, clientMessageId, createdAt: timestamp, editedAt: null, deletedAt: null };
+    this.data.chatMessages.push(message);
+    const conversation = this.data.chatConversations.find((item) => item.id === conversationId);
+    if (conversation) { conversation.updatedAt = timestamp; conversation.lastMessageAt = timestamp; }
+    const member = this.data.chatMembers.find((item) => item.conversationId === conversationId && item.userId === userId);
+    if (member) member.lastReadAt = timestamp;
+    this.data.chatMembers.filter((item) => item.conversationId === conversationId && item.userId !== userId && !item.mutedAt).forEach((recipient) => {
+      this.data.notifications.unshift({ id: id(), userId: recipient.userId, type: "chat", title: "پیام جدید", body: cleanBody.slice(0, 160), relatedEntityType: "conversation", relatedEntityId: conversationId, actionUrl: "#/chat", priority: "normal", readAt: null, createdAt: timestamp, expiresAt: null });
+    });
+    return clone(message);
+  }
+  async markChatRead(userId: string, conversationId: string): Promise<void> {
+    const member = this.requireChatMember(userId, conversationId);
+    member.lastReadAt = now();
+  }
+  async purgeUserData(userId: string): Promise<void> {
+    this.data.userProfiles = this.data.userProfiles.filter((item) => item.userId !== userId);
+    this.data.personalNotes = this.data.personalNotes.filter((item) => item.userId !== userId);
+    this.data.tasks = this.data.tasks.filter((item) => item.assigneeUserId !== userId && item.createdByUserId !== userId);
+    this.data.highlights = this.data.highlights.filter((item) => item.userId !== userId);
+    this.data.chatMessages = this.data.chatMessages.filter((item) => item.senderId !== userId);
+    this.data.chatMembers = this.data.chatMembers.filter((item) => item.userId !== userId);
+    const conversationIds = new Set(this.data.chatMembers.map((item) => item.conversationId));
+    this.data.chatConversations = this.data.chatConversations.filter((item) => conversationIds.has(item.id));
+    this.data.chatMessages = this.data.chatMessages.filter((item) => conversationIds.has(item.conversationId));
+    this.data.reminders = this.data.reminders.filter((item) => item.userId !== userId && item.createdBy !== userId);
+    this.data.pushSubscriptions = this.data.pushSubscriptions.filter((item) => item.userId !== userId);
+    this.data.notifications = this.data.notifications.filter((item) => item.userId !== userId);
+  }
+  async listNotifications(userId: string, cursor?: string | null, limit = 30): Promise<{ notifications: AppNotification[]; unreadCount: number; nextCursor?: string | null }> {
+    const boundedLimit = Math.min(Math.max(limit, 1), 80);
+    const sorted = this.data.notifications.filter((item) => item.userId === userId && (!item.expiresAt || item.expiresAt > now())).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const start = cursor ? sorted.findIndex((item) => item.id === cursor) + 1 : 0;
+    const page = sorted.slice(Math.max(start, 0), Math.max(start, 0) + boundedLimit);
+    return clone({ notifications: page, unreadCount: sorted.filter((item) => !item.readAt).length, nextCursor: page.length === boundedLimit ? page[page.length - 1]?.id ?? null : null });
+  }
+  async markNotificationRead(userId: string, notificationId: string): Promise<void> {
+    const item = this.data.notifications.find((notification) => notification.id === notificationId && notification.userId === userId);
+    if (item && !item.readAt) item.readAt = now();
+  }
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    const timestamp = now();
+    this.data.notifications.filter((item) => item.userId === userId && !item.readAt).forEach((item) => { item.readAt = timestamp; });
+  }
+  async saveReminder(reminder: Reminder): Promise<Reminder> {
+    const index = this.data.reminders.findIndex((item) => item.id === reminder.id);
+    const timestamp = now();
+    const saved: Reminder = { ...reminder, id: reminder.id || id(), title: sanitizeText(reminder.title).slice(0, 160), body: reminder.body ? sanitizeText(reminder.body).slice(0, 500) : null, updatedAt: timestamp, createdAt: index >= 0 ? this.data.reminders[index].createdAt : reminder.createdAt || timestamp, deduplicationKey: reminder.deduplicationKey || `${reminder.userId}:${reminder.relatedEntityType}:${reminder.relatedEntityId ?? reminder.id}:${reminder.scheduledForUtc}` };
+    if (index >= 0) this.data.reminders[index] = saved; else this.data.reminders.push(saved);
+    return clone(saved);
+  }
+  async listReminders(userId: string, relatedEntityType?: ReminderRelatedEntityType, relatedEntityId?: string): Promise<Reminder[]> {
+    return clone(this.data.reminders.filter((item) => item.userId === userId && (!relatedEntityType || item.relatedEntityType === relatedEntityType) && (!relatedEntityId || item.relatedEntityId === relatedEntityId)).sort((a, b) => a.scheduledForUtc.localeCompare(b.scheduledForUtc)));
+  }
+  async cancelReminder(userId: string, reminderId: string): Promise<void> {
+    const item = this.data.reminders.find((reminder) => reminder.id === reminderId && reminder.userId === userId);
+    if (item) { item.status = "CANCELLED"; item.cancelledAt = now(); item.updatedAt = now(); }
+  }
+  async snoozeReminder(userId: string, reminderId: string, minutes: number): Promise<Reminder> {
+    const item = this.data.reminders.find((reminder) => reminder.id === reminderId && reminder.userId === userId);
+    if (!item) throw new Error("یادآور پیدا نشد.");
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + Math.max(1, minutes));
+    item.status = "SNOOZED"; item.scheduledForUtc = date.toISOString(); item.updatedAt = now(); item.retryCount = 0;
+    return clone(item);
+  }
+  async savePushSubscription(subscription: PushSubscriptionRecord): Promise<PushSubscriptionRecord> {
+    const timestamp = now();
+    const existing = this.data.pushSubscriptions.findIndex((item) => item.endpoint === subscription.endpoint);
+    const saved: PushSubscriptionRecord = { ...subscription, id: existing >= 0 ? this.data.pushSubscriptions[existing].id : subscription.id || id(), createdAt: existing >= 0 ? this.data.pushSubscriptions[existing].createdAt : subscription.createdAt || timestamp, updatedAt: timestamp, failureCount: existing >= 0 ? this.data.pushSubscriptions[existing].failureCount : subscription.failureCount ?? 0, revokedAt: null };
+    if (existing >= 0) this.data.pushSubscriptions[existing] = saved; else this.data.pushSubscriptions.push(saved);
+    return clone(saved);
+  }
+  async revokePushSubscription(userId: string, subscriptionId: string): Promise<void> {
+    const item = this.data.pushSubscriptions.find((subscription) => subscription.id === subscriptionId && subscription.userId === userId);
+    if (item) { item.revokedAt = now(); item.updatedAt = now(); }
+  }
+  async listPushSubscriptions(userId: string): Promise<PushSubscriptionRecord[]> {
+    return clone(this.data.pushSubscriptions.filter((item) => item.userId === userId && !item.revokedAt).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+  }
+  async processDueReminders(atUtc = now()): Promise<{ processed: number; notificationsCreated: number; failed: number }> {
+    const due = this.data.reminders.filter((item) => (item.status === "SCHEDULED" || item.status === "SNOOZED" || item.status === "FAILED") && item.scheduledForUtc <= atUtc).slice(0, 50);
+    let notificationsCreated = 0;
+    let failed = 0;
+    for (const reminder of due) {
+      if (this.data.notifications.some((item) => item.relatedEntityType === reminder.relatedEntityType && item.relatedEntityId === (reminder.relatedEntityId ?? reminder.id) && item.createdAt >= reminder.scheduledForUtc && item.userId === reminder.userId)) {
+        reminder.status = "SENT"; reminder.sentAt = now(); reminder.updatedAt = now();
+        continue;
+      }
+      try {
+        reminder.status = "PROCESSING"; reminder.updatedAt = now();
+        this.data.notifications.unshift({ id: id(), userId: reminder.userId, type: reminder.relatedEntityType === "task" ? "reminder" : "deadline", title: reminder.title, body: reminder.body ?? null, relatedEntityType: reminder.relatedEntityType, relatedEntityId: reminder.relatedEntityId ?? reminder.id, actionUrl: reminder.relatedEntityType === "task" ? "#/tasks" : "#/calendar", priority: reminder.priority, readAt: null, createdAt: now(), expiresAt: null });
+        reminder.status = "SENT"; reminder.sentAt = now(); reminder.updatedAt = now();
+        notificationsCreated += 1;
+      } catch {
+        reminder.status = "FAILED"; reminder.retryCount += 1; reminder.updatedAt = now(); failed += 1;
+      }
+    }
+    return { processed: due.length, notificationsCreated, failed };
+  }
+  private requireChatMember(userId: string, conversationId: string): ChatConversationMember {
+    const member = this.data.chatMembers.find((item) => item.userId === userId && item.conversationId === conversationId);
+    if (!member) throw new Error("به این گفتگو دسترسی ندارید.");
+    return member;
+  }
+  private chatSummary(conversationId: string, viewerId: string): ChatConversationSummary {
+    const conversation = this.data.chatConversations.find((item) => item.id === conversationId);
+    if (!conversation) throw new Error("گفتگو پیدا نشد.");
+    const members = this.data.chatMembers.filter((member) => member.conversationId === conversationId);
+    const viewer = members.find((member) => member.userId === viewerId);
+    if (!viewer) throw new Error("به این گفتگو دسترسی ندارید.");
+    const messages = this.data.chatMessages.filter((message) => message.conversationId === conversationId && !message.deletedAt);
+    const lastMessage = messages.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+    const unreadCount = messages.filter((message) => message.senderId !== viewerId && (!viewer.lastReadAt || message.createdAt > viewer.lastReadAt)).length;
+    return { conversation, members, unreadCount, lastMessage };
+  }
+}
+
+function sanitizeText(value: string): string {
+  return value.replace(/[<>]/g, "").replace(/\s+$/g, "").trimStart();
 }

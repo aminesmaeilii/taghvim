@@ -10,6 +10,7 @@ import { useActivityLogger, useCurrentProfile } from "../../hooks/use-profile";
 import { useWorkspace, workspaceKey } from "../../hooks/use-workspace";
 import { contentRepository } from "../../services/content-repository";
 import { useUIStore } from "../../stores/ui-store";
+import { ForwardButton } from "../chat/forward-button";
 import type { AdBudget, Content, ContentStatusKey, WorkspaceData } from "@shared/types/domain";
 import { addJalaliMonths, formatJalaliDate, formatJalaliMonth, getCurrentJalaliMonth, isSameJalaliMonth, jalaliToIso, todayIso } from "@shared/utils/jalali";
 
@@ -79,7 +80,7 @@ export function AdvertisingPage() {
       <header><Wallet size={20} /><div><h2>بودجه {formatJalaliMonth(year, month)}</h2><p>{budget ? `آخرین ثبت توسط ${budget.updatedByName ?? "-"}` : "هنوز بودجه ای برای این ماه ثبت نشده است."}</p></div></header>
       <div className="ad-budget-summary"><strong>{spent.toLocaleString("fa-IR")}</strong><span>از {(budget?.amount ?? 0).toLocaleString("fa-IR")} تومان بودجه</span></div>
       <div className="progress-track"><span style={{ width: `${budget?.amount ? Math.min(100, Math.round((spent / budget.amount) * 100)) : 0}%` }} /></div>
-      <div className="ad-budget-form"><Input type="number" placeholder={budget ? String(budget.amount) : "مبلغ بودجه به تومان"} value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} /><Input placeholder="یادداشت اختیاری" value={budgetNotes} onChange={(event) => setBudgetNotes(event.target.value)} /><Button size="sm" onClick={() => void saveBudget()}><Save size={15} />ثبت بودجه</Button></div>
+      <div className="ad-budget-form"><Input type="number" placeholder={budget ? String(budget.amount) : "مبلغ بودجه به تومان"} value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} /><Input placeholder="یادداشت اختیاری" value={budgetNotes} onChange={(event) => setBudgetNotes(event.target.value)} /><Button size="sm" onClick={() => void saveBudget()}><Save size={15} />ثبت بودجه</Button>{budget && <ForwardButton entity={{ type: "ad_budget", id: budget.id, title: `بودجه ${formatJalaliMonth(year, month)}`, label: "بودجه تبلیغات", description: `${budget.amount.toLocaleString("fa-IR")} تومان` }} />}</div>
     </section>
     {ads.length ? <section className="surface ad-list">{ads.map((ad) => { const status = STATUS_META[ad.status]; const platform = workspace.data?.platforms.find((item) => item.id === ad.platformId); return <button type="button" className="ad-row" key={ad.id} onClick={() => setEditing(ad)}>
       <Megaphone size={18} />

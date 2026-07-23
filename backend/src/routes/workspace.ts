@@ -57,6 +57,19 @@ const MUTATIONS = new Set<keyof ContentRepository>([
   "saveAdBudget",
   "saveTask",
   "deleteTask",
+  "createDirectChat",
+  "createGroupChat",
+  "sendChatMessage",
+  "markChatRead",
+  "purgeUserData",
+  "markNotificationRead",
+  "markAllNotificationsRead",
+  "saveReminder",
+  "cancelReminder",
+  "snoozeReminder",
+  "savePushSubscription",
+  "revokePushSubscription",
+  "processDueReminders",
 ]);
 
 function setCors(req: VercelRequest, res: VercelResponse): void {

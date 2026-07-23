@@ -1,6 +1,6 @@
-import { Bell, CalendarDays, CheckSquare, ChevronLeft, ClipboardList, FolderKanban, GanttChart, Gauge, GraduationCap, History, Lightbulb, LogOut, Megaphone, Menu, Moon, MoreHorizontal, NotebookPen, PanelRightClose, Plus, Search, Settings, ShieldCheck, Sparkles, Sun, TableProperties, UserCircle, Workflow, X } from "lucide-react";
+import { CalendarDays, CheckSquare, ChevronLeft, ClipboardList, FolderKanban, GanttChart, Gauge, GraduationCap, History, Lightbulb, LogOut, Megaphone, Menu, Moon, MoreHorizontal, NotebookPen, PanelRightClose, Plus, Search, Settings, ShieldCheck, Sparkles, Sun, TableProperties, UserCircle, Workflow, X } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useUIStore } from "../stores/ui-store";
 import { IconButton, Input } from "./ui";
 import { ContentEditor } from "../features/content/content-editor";
@@ -9,12 +9,15 @@ import { useAuth } from "../hooks/use-auth-context";
 import { useContentNotifications } from "../hooks/use-content-notifications";
 import { useCurrentProfile } from "../hooks/use-profile";
 import { useProfileSync } from "../hooks/use-profile-sync";
+import { NotificationCenter } from "../features/notifications/notification-center";
+
+const ChatLauncher = lazy(() => import("../features/chat/chat-launcher"));
 
 const navigation = [
   ["/", "داشبورد", Gauge], ["/tasks", "تودو لیست تیم", CheckSquare], ["/calendar", "تقویم محتوا", CalendarDays], ["/gantt", "گانت چارت", GanttChart], ["/workflow", "گردش کار", Workflow], ["/contents", "فهرست محتوا", TableProperties],
   ["/campaigns", "کمپین ها", FolderKanban], ["/ideas", "ایده ها", Lightbulb], ["/advertising", "تبلیغات", Megaphone],
   ["/templates", "قالب ها", ClipboardList], ["/education", "آموزش", GraduationCap],
-  ["/notes", "یادداشت های شخصی", NotebookPen, true],
+  ["/notes", "یادداشت های شخصی", NotebookPen],
   ["/reports", "گزارش ها", Sparkles], ["/activity", "تاریخچه تغییرات", History], ["/settings", "تنظیمات", Settings],
 ] as const;
 
@@ -51,19 +54,18 @@ export function AppShell() {
     {!sidebarCollapsed && <button type="button" className="sidebar-backdrop" aria-label="بستن نوار کناری" onClick={closeSidebar} />}
     <aside className="sidebar" aria-label="ناوبری اصلی">
       <div className="brand"><button type="button" className="brand-mark" onClick={toggleSidebar} aria-label={sidebarCollapsed ? "باز کردن نوار" : "جمع کردن نوار"}><img src={zambilLogo} alt="" /></button><span>زمبیل</span><IconButton label="جمع کردن نوار" onClick={toggleSidebar}><PanelRightClose size={18} /></IconButton></div>
-      <nav>{navigation.map(([to, label, Icon, sub]) => <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => `nav-item ${sub ? "nav-item-sub" : ""} ${isActive ? "active" : ""}`} title={sidebarCollapsed ? label : undefined} onClick={() => { if (window.matchMedia("(max-width: 680px)").matches) closeSidebar(); }}><Icon size={sub ? 16 : 19} /><span>{label}</span></NavLink>)}</nav>
+      <nav>{navigation.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`} title={sidebarCollapsed ? label : undefined} onClick={() => { if (window.matchMedia("(max-width: 680px)").matches) closeSidebar(); }}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
       <div className="sidebar-footer"><span>نسخه ۰.۱.۱</span></div>
     </aside>
     <div className="workspace">
       <header className="topbar">
         <IconButton className="menu-button" label="باز کردن ناوبری" onClick={toggleSidebar}><Menu size={20} /></IconButton>
-        <form className={`global-search ${mobileSearchOpen ? "mobile-search-open" : ""}`} onSubmit={submitSearch}><Search size={18} /><Input name="q" aria-label="جستجوی سراسری" placeholder="جستجو در محتوا، برچسب و یادداشت" autoFocus={mobileSearchOpen} /><kbd>Ctrl K</kbd></form>
+        <form className={`global-search ${mobileSearchOpen ? "mobile-search-open" : ""}`} onSubmit={submitSearch}><Search size={18} /><Input name="q" aria-label="جستجوی سراسری" placeholder="جستجو در محتوا، برچسب و یادداشت" autoFocus={mobileSearchOpen} /></form>
         <div className="topbar-actions">
           <IconButton className="mobile-search-toggle" label="جستجو" onClick={() => setMobileSearchOpen((value) => !value)}><Search size={18} /></IconButton>
           <IconButton label={theme === "dark" ? "تم روشن" : "تم تاریک"} onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</IconButton>
-          <IconButton label="مرکز اعلان ها"><Bell size={18} /></IconButton>
+          <NotificationCenter />
           <div className="account-menu"><button type="button" className="account-trigger">{profile?.avatarUrl ? <img className="account-avatar" src={profile.avatarUrl} alt="" /> : <UserCircle size={18} />}<span>{user?.firstName ?? "کاربر"}</span></button><div className="account-popover"><button type="button" onClick={() => navigate("/profile")}><UserCircle size={16} />پروفایل</button><button type="button" onClick={() => navigate("/sessions")}><ShieldCheck size={16} />نشست ها</button><button type="button" onClick={() => void logout().then(() => navigate("/login", { replace: true }))}><LogOut size={16} />خروج</button></div></div>
-          <button className="button button-primary desktop-new-content" type="button" onClick={() => openContentDialog({ quick: true })}><Plus size={18} />محتوای جدید</button>
         </div>
       </header>
       <main id="main-content"><Outlet /></main>
@@ -81,6 +83,7 @@ export function AppShell() {
       <nav>{navigation.filter(([to]) => !MOBILE_PRIMARY_ROUTES.includes(to)).map(([to, label, Icon]) => <NavLink key={to} to={to} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`} onClick={() => setMoreOpen(false)}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
     </div>
     <div className="toast-region" aria-live="polite">{toasts.map((toast) => <div className="toast" key={toast.id}><span>{toast.title}</span>{toast.action && <button type="button" onClick={toast.action.onClick}>{toast.action.label}</button>}<IconButton label="بستن پیام" onClick={() => dismissToast(toast.id)}><X size={16} /></IconButton></div>)}</div>
+    <Suspense fallback={null}><ChatLauncher /></Suspense>
     <ContentEditor />
   </div>;
 }

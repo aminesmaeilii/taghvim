@@ -116,7 +116,7 @@ function validatePassword(password: string, user?: Pick<AuthUser, "username" | "
   if (password.length < 12) return "رمز عبور باید حداقل ۱۲ کاراکتر باشد.";
   const lower = password.toLowerCase();
   if (["password", "123456", "qwerty", "admin"].some((item) => lower.includes(item))) return "رمز عبور بسیار رایج یا قابل حدس است.";
-  if (user && (lower.includes(user.username.toLowerCase()) || lower.includes(user.email.toLowerCase()))) return "رمز عبور نباید شامل نام کاربری یا ایمیل باشد.";
+  if (user && (lower.includes(user.username.toLowerCase()) || (user.email && lower.includes(user.email.toLowerCase())))) return "رمز عبور نباید شامل نام کاربری یا ایمیل باشد.";
   return null;
 }
 
@@ -207,13 +207,14 @@ export const authService = {
   },
   async createUser(input: CreateUserInput): Promise<SafeUser> {
     const actor = await this.requirePermission("users.create");
-    const validation = validatePassword(input.temporaryPassword, input);
+    const normalizedEmail = input.email?.trim().toLowerCase() ?? "";
+    const validation = validatePassword(input.temporaryPassword, { username: input.username, email: normalizedEmail });
     if (validation) throw new Error(validation);
     const users = await storeGetAll<AuthUser>("users");
     if (users.some((user) => user.username.toLowerCase() === input.username.toLowerCase())) throw new Error("نام کاربری تکراری است.");
-    if (users.some((user) => user.email.toLowerCase() === input.email.toLowerCase())) throw new Error("ایمیل تکراری است.");
+    if (normalizedEmail && users.some((user) => user.email.toLowerCase() === normalizedEmail)) throw new Error("ایمیل تکراری است.");
     const { hash, salt } = await hashPassword(input.temporaryPassword);
-    const user: AuthUser = { ...input, id: crypto.randomUUID(), phone: input.phone ?? null, avatarUrl: null, jobTitle: input.jobTitle ?? null, department: input.department ?? null, team: input.team ?? null, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: null, failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: input.adminNotes ?? null };
+    const user: AuthUser = { ...input, email: normalizedEmail || `${input.username.toLowerCase()}@no-email.local`, id: crypto.randomUUID(), phone: input.phone ?? null, avatarUrl: null, jobTitle: input.jobTitle ?? null, department: input.department ?? null, team: input.team ?? null, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: null, failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: input.adminNotes ?? null };
     await storePut("users", user);
     await addAudit({ actorUserId: actor.id, targetUserId: user.id, action: "users.create", result: "success", metadata: { role: user.role } });
     return toSafeUser(user);

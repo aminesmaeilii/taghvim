@@ -267,6 +267,9 @@ export interface PersonalNote {
   color: string;
   pinned: boolean;
   tags: string[];
+  archivedAt?: string | null;
+  sortOrder?: number;
+  linkedNoteIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -282,6 +285,128 @@ export interface TaskItem extends BaseEntity {
   dueDate?: string | null;
   createdByUserId: string;
   createdByName?: string | null;
+}
+
+export type ChatConversationType = "DIRECT" | "GROUP";
+export type ChatMemberRole = "OWNER" | "ADMIN" | "MEMBER";
+export type ChatMessageStatus = "sent" | "failed" | "pending";
+export type ChatContextType = "content" | "task" | "campaign" | "calendar_event" | "idea" | "template" | "note" | "learning_material" | "ad_budget";
+
+export interface ChatConversation {
+  id: string;
+  type: ChatConversationType;
+  title?: string | null;
+  avatarUrl?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt?: string | null;
+  directKey?: string | null;
+}
+
+export interface ChatConversationMember {
+  conversationId: string;
+  userId: string;
+  role: ChatMemberRole;
+  joinedAt: string;
+  lastReadAt?: string | null;
+  mutedAt?: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  messageType: "TEXT";
+  body: string;
+  contextType?: ChatContextType | null;
+  contextId?: string | null;
+  contextMetadata?: Record<string, string> | null;
+  clientMessageId: string;
+  createdAt: string;
+  editedAt?: string | null;
+  deletedAt?: string | null;
+}
+
+export interface ChatConversationSummary {
+  conversation: ChatConversation;
+  members: ChatConversationMember[];
+  unreadCount: number;
+  lastMessage?: ChatMessage | null;
+}
+
+export interface ChatMessagePage {
+  messages: ChatMessage[];
+  nextCursor?: string | null;
+}
+
+export type ReminderRelatedEntityType = "task" | "content" | "campaign" | "calendar_event" | "personal";
+export type ReminderStatus = "SCHEDULED" | "PROCESSING" | "SENT" | "PARTIALLY_SENT" | "FAILED" | "CANCELLED" | "SNOOZED";
+export type NotificationType = "reminder" | "chat" | "task_assignment" | "deadline" | "overdue" | "calendar_change" | "campaign";
+export type NotificationPriority = "low" | "normal" | "high" | "critical";
+
+export interface Reminder {
+  id: string;
+  userId: string;
+  taskId?: string | null;
+  eventId?: string | null;
+  campaignId?: string | null;
+  relatedEntityId?: string | null;
+  relatedEntityType: ReminderRelatedEntityType;
+  title: string;
+  body?: string | null;
+  scheduledForUtc: string;
+  originalTimezone: string;
+  status: ReminderStatus;
+  priority: NotificationPriority;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt?: string | null;
+  sentAt?: string | null;
+  deduplicationKey: string;
+  retryCount: number;
+}
+
+export interface PushSubscriptionRecord {
+  id: string;
+  userId: string;
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  deviceName: string;
+  browserInfo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt?: string | null;
+  revokedAt?: string | null;
+  failureCount: number;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body?: string | null;
+  relatedEntityType?: ReminderRelatedEntityType | ChatContextType | "conversation" | null;
+  relatedEntityId?: string | null;
+  actionUrl?: string | null;
+  priority: NotificationPriority;
+  readAt?: string | null;
+  createdAt: string;
+  expiresAt?: string | null;
+}
+
+export interface NotificationPreferences {
+  pushEnabled: boolean;
+  defaultReminderMinutes: number[];
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  privacyMode: "full" | "generic";
+  chatNotifications: boolean;
+  taskNotifications: boolean;
+  overdueNotifications: boolean;
+  criticalBypassesQuietHours: boolean;
 }
 
 export interface WorkspaceData {
@@ -301,6 +426,12 @@ export interface WorkspaceData {
   personalNotes: PersonalNote[];
   adBudgets: AdBudget[];
   tasks: TaskItem[];
+  chatConversations: ChatConversation[];
+  chatMembers: ChatConversationMember[];
+  chatMessages: ChatMessage[];
+  reminders: Reminder[];
+  pushSubscriptions: PushSubscriptionRecord[];
+  notifications: AppNotification[];
 }
 
 export interface AppSettings {
@@ -313,6 +444,7 @@ export interface AppSettings {
   notificationLeadMinutes: number;
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
+  notificationPreferences?: NotificationPreferences;
 }
 
 export interface DashboardData {
@@ -322,4 +454,111 @@ export interface DashboardData {
   awaitingReview: Content[];
   scheduled: Content[];
   recentlyPublished: Content[];
+}
+
+export type ReportMode = "overview" | "operations" | "collaboration";
+export type ReportComparisonMode = "previous_period" | "none";
+
+export interface ReportFilters {
+  fromDate: string;
+  toDate: string;
+  team?: string;
+  userId?: string;
+  role?: string;
+  campaignId?: string;
+  platformId?: string;
+  typeId?: string;
+  taskStatus?: TaskStatus | "all";
+  comparisonMode: ReportComparisonMode;
+}
+
+export interface ReportMetricDefinition {
+  key: string;
+  label: string;
+  meaning: string;
+  formula: string;
+  source: string;
+  filters: string[];
+  comparison: string;
+  permission: string;
+  kind: "observed" | "estimated" | "missing";
+  completeness: string;
+}
+
+export interface ReportKpi {
+  key: string;
+  label: string;
+  value: number | null;
+  unit?: "count" | "percent" | "days" | "hours";
+  previousValue?: number | null;
+  change?: number | null;
+  status: "good" | "watch" | "risk" | "neutral" | "missing";
+  insight: string;
+  sampleSize?: number;
+}
+
+export interface ReportBreakdownItem {
+  id: string;
+  label: string;
+  value: number;
+  color?: string;
+}
+
+export interface ReportTrendPoint {
+  date: string;
+  planned: number;
+  completed: number;
+  messages: number;
+  reminders: number;
+}
+
+export interface ReportInsight {
+  id: string;
+  title: string;
+  body: string;
+  severity: "positive" | "risk" | "neutral";
+  inspectKey: string;
+}
+
+export interface ReportTableRow {
+  id: string;
+  kind: "task" | "content" | "campaign" | "chat" | "reminder" | "notification";
+  title: string;
+  owner: string;
+  status: string;
+  date: string;
+  priority?: Priority | NotificationPriority | null;
+  risk?: string | null;
+}
+
+export interface ReportDataQualityIssue {
+  key: string;
+  label: string;
+  count: number;
+  explanation: string;
+}
+
+export interface ReportSnapshot {
+  filters: ReportFilters;
+  generatedAt: string;
+  comparisonPeriod: { fromDate: string; toDate: string } | null;
+  dataCompleteness: "complete" | "partial" | "insufficient";
+  summary: string;
+  kpis: ReportKpi[];
+  contentStatus: ReportBreakdownItem[];
+  taskStatus: ReportBreakdownItem[];
+  platforms: ReportBreakdownItem[];
+  contentTypes: ReportBreakdownItem[];
+  campaigns: ReportBreakdownItem[];
+  teams: ReportBreakdownItem[];
+  workflowStages: ReportBreakdownItem[];
+  collaboration: ReportBreakdownItem[];
+  reminders: ReportBreakdownItem[];
+  trend: ReportTrendPoint[];
+  insights: ReportInsight[];
+  risks: ReportInsight[];
+  table: { rows: ReportTableRow[]; total: number; page: number; pageSize: number };
+  dataQuality: ReportDataQualityIssue[];
+  metricCatalog: ReportMetricDefinition[];
+  privacy: { presentationSafe: boolean; hiddenFields: string[] };
 }

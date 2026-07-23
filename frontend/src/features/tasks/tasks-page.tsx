@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarClock, CheckSquare, Plus, Square, Trash2, User } from "lucide-react";
+import { AlertCircle, BellRing, CalendarClock, CheckSquare, Plus, Square, Trash2, User } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/app-shell";
@@ -9,6 +9,7 @@ import { useWorkspace, workspaceKey } from "../../hooks/use-workspace";
 import { useUIStore } from "../../stores/ui-store";
 import { useAuth } from "../../hooks/use-auth-context";
 import { useActivityLogger } from "../../hooks/use-profile";
+import { ForwardButton } from "../chat/forward-button";
 import type { Priority, TaskItem, UserProfile, WorkspaceData } from "@shared/types/domain";
 import { formatJalaliDate, todayIso } from "@shared/utils/jalali";
 
@@ -98,7 +99,7 @@ export function TasksPage() {
                       <span className="task-priority-tag">{PRIORITY_LABEL[task.priority]}</span>
                     </div>
                   </button>
-                  {editable && <button type="button" className="task-delete" aria-label="حذف وظیفه" onClick={() => void remove(task)}><Trash2 size={13} /></button>}
+                  <div className="task-card-actions"><ForwardButton entity={{ type: "task", id: task.id, title: task.title, label: "وظیفه", description: task.notes }} />{editable && <button type="button" className="task-delete" aria-label="حذف وظیفه" onClick={() => void remove(task)}><Trash2 size={13} /></button>}</div>
                 </article>;
               })}
               {columnTasks.length === 0 && <div className="tasks-empty"><User size={16} /><span>وظیفه‌ای ثبت نشده</span></div>}
@@ -122,11 +123,14 @@ function TaskDialog({ profile, task, currentUserId, currentUserName, onClose, on
   const [notes, setNotes] = useState(task?.notes ?? "");
   const [priority, setPriority] = useState<Priority>(task?.priority ?? "normal");
   const [dueDate, setDueDate] = useState(task?.dueDate ?? "");
+  const [reminderDateTime, setReminderDateTime] = useState("");
+  const [relativeReminders, setRelativeReminders] = useState<number[]>([]);
   const persist = async () => {
     if (title.trim().length < 2) return;
     const now = new Date().toISOString();
-    await onSave({
-      id: task?.id ?? crypto.randomUUID(),
+    const taskId = task?.id ?? crypto.randomUUID();
+    const payload = {
+      id: taskId,
       title: title.trim(),
       notes: notes.trim() || null,
       assigneeUserId: profile.userId,
@@ -140,14 +144,42 @@ function TaskDialog({ profile, task, currentUserId, currentUserName, onClose, on
       archivedAt: task?.archivedAt ?? null,
       sortOrder: task?.sortOrder ?? 0,
       version: task?.version ?? 1,
-    });
+    };
+    await onSave(payload);
+    const dueIso = dueDate ? new Date(`${dueDate}T09:00:00`).toISOString() : null;
+    const reminderDates = [
+      ...relativeReminders.flatMap((minutes) => dueIso ? [new Date(new Date(dueIso).getTime() - minutes * 60_000).toISOString()] : []),
+      ...(reminderDateTime ? [new Date(reminderDateTime).toISOString()] : []),
+    ].filter((value, index, list) => list.indexOf(value) === index);
+    await Promise.all(reminderDates.map((scheduledForUtc) => contentRepository.saveReminder({
+      id: crypto.randomUUID(),
+      userId: profile.userId,
+      taskId,
+      relatedEntityId: taskId,
+      relatedEntityType: "task",
+      title: `یادآوری وظیفه: ${title.trim()}`,
+      body: notes.trim() || null,
+      scheduledForUtc,
+      originalTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Tehran",
+      status: "SCHEDULED",
+      priority: priority === "urgent" ? "critical" : priority === "high" ? "high" : "normal",
+      createdBy: currentUserId,
+      createdAt: now,
+      updatedAt: now,
+      cancelledAt: null,
+      sentAt: null,
+      deduplicationKey: `${profile.userId}:task:${taskId}:${scheduledForUtc}`,
+      retryCount: 0,
+    })));
   };
+  const toggleRelative = (minutes: number) => setRelativeReminders((current) => current.includes(minutes) ? current.filter((item) => item !== minutes) : [...current, minutes]);
   return <Dialog open title={task ? "ویرایش وظیفه" : `وظیفه جدید برای ${profile.displayName}`} onClose={onClose}>
     <div className="form-grid">
       <Field label="عنوان وظیفه"><input className="input" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
       <Field label="اولویت"><Select value={priority} onChange={(event) => setPriority(event.target.value as Priority)}><option value="low">کم</option><option value="normal">عادی</option><option value="high">زیاد</option><option value="urgent">فوری</option></Select></Field>
       <Field label="تاریخ سررسید (برای اتصال به تقویم)" optional><JalaliDateInput value={dueDate} onChange={setDueDate} /></Field>
       <Field label="یادداشت" optional><Textarea rows={3} value={notes ?? ""} onChange={(event) => setNotes(event.target.value)} /></Field>
+      <Field label="یادآوری" optional><div className="reminder-picker"><div>{[[0, "موعد"], [10, "۱۰ دقیقه قبل"], [30, "۳۰ دقیقه قبل"], [60, "۱ ساعت قبل"], [180, "۳ ساعت قبل"], [1440, "۱ روز قبل"]].map(([minutes, label]) => <button key={minutes} type="button" className={relativeReminders.includes(Number(minutes)) ? "active" : ""} onClick={() => toggleRelative(Number(minutes))}><BellRing size={13} />{label}</button>)}</div><input className="input" type="datetime-local" value={reminderDateTime} onChange={(event) => setReminderDateTime(event.target.value)} /></div></Field>
     </div>
     <div className="editor-note"><AlertCircle size={16} /><div><strong>محرمانگی</strong><p>فقط شما یا فردی که این وظیفه را ساخته می‌توانید آن را ویرایش یا حذف کنید؛ بقیه اعضا فقط عنوان و وضعیت را می‌بینند.</p></div></div>
     <footer className="dialog-footer"><Button variant="secondary" onClick={onClose}>انصراف</Button><Button onClick={() => void persist()}>ذخیره وظیفه</Button></footer>

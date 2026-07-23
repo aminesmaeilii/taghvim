@@ -94,6 +94,17 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationLeadMinutes: 30,
   quietHoursStart: null,
   quietHoursEnd: null,
+  notificationPreferences: {
+    pushEnabled: false,
+    defaultReminderMinutes: [30],
+    quietHoursStart: null,
+    quietHoursEnd: null,
+    privacyMode: "full",
+    chatNotifications: true,
+    taskNotifications: true,
+    overdueNotifications: true,
+    criticalBypassesQuietHours: false,
+  },
 };
 
 export const PRIORITY_META = {

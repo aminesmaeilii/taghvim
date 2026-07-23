@@ -9,7 +9,6 @@ import { CalendarPage } from "../features/calendar/calendar-page";
 import { JalaliCalendarPage } from "../features/calendar/jalali-calendar-page";
 import { CampaignsPage, IdeasPage, TemplatesPage } from "../features/planning/planning-pages";
 import { GanttPage } from "../features/gantt/gantt-page";
-import { ReportsPage } from "../features/reports/reports-page";
 import { ActivityPage } from "../features/activity/activity-page";
 import { AdvertisingPage } from "../features/advertising/advertising-page";
 import { EducationPage } from "../features/education/education-page";
@@ -25,6 +24,7 @@ import { ErrorBoundary } from "./error-boundary";
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
 const PdfReaderPage = lazy(() => import("../features/education/pdf-reader-page").then((module) => ({ default: module.PdfReaderPage })));
+const ReportsPage = lazy(() => import("../features/reports/reports-page").then((module) => ({ default: module.ReportsPage })));
 
 function ShortcutHandler() {
   const { openContentDialog, closeContentDialog, pushToast } = useUIStore();
@@ -68,7 +68,7 @@ export function App() {
       <Route path="campaigns" element={<CampaignsPage />} />
       <Route path="ideas" element={<IdeasPage />} />
       <Route path="templates" element={<TemplatesPage />} />
-      <Route path="reports" element={<ReportsPage />} />
+      <Route path="reports" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><ReportsPage /></Suspense>} />
       <Route path="activity" element={<ActivityPage />} />
       <Route path="education" element={<EducationPage />} />
       <Route path="education/:materialId" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><PdfReaderPage /></Suspense>} />

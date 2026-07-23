@@ -1,4 +1,4 @@
-import { CalendarClock, CheckSquare, ClipboardCheck, Clock3, Lightbulb, Paperclip, Plus, Send, UserPlus, Wallet } from "lucide-react";
+import { CalendarClock, CheckSquare, ClipboardCheck, Clock3, Lightbulb, Paperclip, Plus, Send, Wallet } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ export function DashboardPage() {
   const contents = useContents();
   const { openContentDialog } = useUIStore();
   const navigate = useNavigate();
-  const { user, hasPermission } = useAuth();
+  const { user } = useAuth();
   const [selected, setSelected] = useState<Content | null>(null);
   if (workspace.isLoading || contents.isLoading) return <DashboardSkeleton />;
   if (!workspace.data || !contents.data) return <div className="page"><EmptyState title="فضای کاری بارگذاری نشد" description="دوباره برنامه را باز کنید یا از پشتیبان داده ها بازیابی کنید." /></div>;
@@ -57,7 +57,6 @@ export function DashboardPage() {
       description={formatJalaliDate(today, { includeWeekday: true })}
       actions={<div className="dashboard-header-actions">
         <div className="avatar-stack">{teamProfiles.map((profile) => <span className="avatar-stack-item" key={profile.userId} title={profile.displayName}>{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : initialsOf(profile.displayName)}</span>)}</div>
-        {hasPermission("users.create") && <Button variant="secondary" size="sm" onClick={() => navigate("/settings")}><UserPlus size={16} />افزودن کاربر</Button>}
       </div>}
     />
     {!hasContent ? <section className="welcome-panel"><div><span className="eyebrow">شروع فضای کاری</span><h2>برنامه محتوای شما از همین جا شکل می گیرد.</h2><p>یک آیتم بسازید، تقویم را باز کنید یا داده های قبلی تان را وارد کنید.</p></div><div className="welcome-actions"><Button onClick={() => openContentDialog({ quick: true })}><Plus size={18} />ساخت اولین محتوا</Button><Button variant="secondary" onClick={() => navigate("/calendar")}>باز کردن تقویم</Button></div></section> : <>

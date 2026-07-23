@@ -101,7 +101,7 @@ export interface LoginResult {
 
 export interface CreateUserInput {
   username: string;
-  email: string;
+  email?: string;
   firstName: string;
   lastName: string;
   phone?: string;

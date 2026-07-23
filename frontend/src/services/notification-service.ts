@@ -67,3 +67,28 @@ export async function showBrowserNotification(title: string, options?: Notificat
   if (await showViaServiceWorker(title, options)) return true;
   return showViaConstructor(title, options);
 }
+
+export function isPushSupported(): boolean {
+  return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && isNotificationSupported();
+}
+
+export function getVapidPublicKey(): string {
+  return import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "";
+}
+
+export async function subscribeCurrentDevice(): Promise<PushSubscription | null> {
+  if (!isPushSupported()) return null;
+  const publicKey = getVapidPublicKey();
+  if (!publicKey) throw new Error("کلید عمومی VAPID تنظیم نشده است.");
+  const permission = await requestNotificationPermission();
+  if (permission !== "granted") return null;
+  const registration = await navigator.serviceWorker.ready;
+  return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
