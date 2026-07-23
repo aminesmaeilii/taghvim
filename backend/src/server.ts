@@ -1,11 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import authHandler from "./routes/auth.js";
 import workspaceHandler from "./routes/workspace.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
 type RenderRequest = {
   method?: string;
-  headers: { origin?: string; "x-request-id"?: string; "x-correlation-id"?: string };
+  headers: { origin?: string; authorization?: string; "user-agent"?: string; "x-request-id"?: string; "x-correlation-id"?: string };
   body: unknown;
 };
 
@@ -40,6 +41,8 @@ function createAdapter(req: IncomingMessage, res: ServerResponse, body: unknown)
       method: req.method,
       headers: {
         origin: Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin,
+        authorization: Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization,
+        "user-agent": Array.isArray(req.headers["user-agent"]) ? req.headers["user-agent"][0] : req.headers["user-agent"],
         "x-request-id": Array.isArray(req.headers["x-request-id"]) ? req.headers["x-request-id"][0] : req.headers["x-request-id"],
         "x-correlation-id": Array.isArray(req.headers["x-correlation-id"]) ? req.headers["x-correlation-id"][0] : req.headers["x-correlation-id"],
       },
@@ -101,7 +104,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (url.pathname !== "/api/workspace") {
+    if (url.pathname !== "/api/workspace" && url.pathname !== "/api/auth") {
       res.statusCode = 404;
       res.setHeader("content-type", "application/json; charset=utf-8");
       res.end(JSON.stringify({ error: "Not found." }));
@@ -110,7 +113,8 @@ const server = createServer(async (req, res) => {
 
     const body = await readBody(req);
     const adapter = createAdapter(req, res, body);
-    await workspaceHandler(adapter.req, adapter.res);
+    if (url.pathname === "/api/auth") await authHandler(adapter.req, adapter.res);
+    else await workspaceHandler(adapter.req, adapter.res);
   } catch (error) {
     res.statusCode = 500;
     res.setHeader("content-type", "application/json; charset=utf-8");

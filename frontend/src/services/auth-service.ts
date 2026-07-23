@@ -1,5 +1,7 @@
 import type { AccountStatus, AuditLog, AuthSession, AuthUser, CreateUserInput, DataScope, LoginResult, Permission, Role, SafeUser } from "@shared/types/auth";
 import { ALL_PERMISSIONS, DATA_SCOPES, ROLES, effectivePermissions, hasPermission as userHasPermission } from "@shared/services/authorization";
+import { API_BASE_URL, USE_REMOTE_API } from "./api-config";
+import { isDesktopRuntime } from "./platform";
 
 const DB_NAME = "zambil-auth-v2";
 const LEGACY_DB_NAME = "zambil-auth";
@@ -119,7 +121,7 @@ async function ensureBootstrapAdmin(): Promise<void> {
   await addAudit({ actorUserId: null, targetUserId: admin.id, action: "auth.bootstrap_super_admin", result: "success", metadata: { username: "taghvim-root" } });
 }
 
-export const authService = {
+const browserAuthService = {
   async bootstrap(): Promise<SafeUser | null> {
     await ensureBootstrapAdmin();
     return this.currentUser();
@@ -278,6 +280,61 @@ export const authService = {
   dataScopes(): DataScope[] { return DATA_SCOPES; },
 };
 
+type RemoteLoginResult = LoginResult & { token: string };
+
+const remoteAuthService = {
+  async call<T>(method: string, args: unknown[] = []): Promise<T> {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    const token = raw ? (JSON.parse(raw) as { token?: string }).token : null;
+    const requestId = `req_${crypto.randomUUID().slice(0, 8)}`;
+    const response = await fetch(`${API_BASE_URL}/api/auth`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": requestId,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ method, args }),
+    });
+    const payload = await response.json().catch(() => null) as { data?: T; error?: string; requestId?: string } | null;
+    if (!response.ok) throw new Error(`${payload?.error ?? "Backend auth request failed."} (${payload?.requestId ?? response.headers.get("x-request-id") ?? requestId})`);
+    return payload?.data as T;
+  },
+  async bootstrap(): Promise<SafeUser | null> { return this.call<SafeUser | null>("bootstrap"); },
+  async login(identifier: string, password: string, remember: boolean): Promise<LoginResult> {
+    const result = await this.call<RemoteLoginResult>("login", [identifier, password, remember]);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: result.session.id, token: result.token }));
+    return result;
+  },
+  async currentUser(): Promise<SafeUser | null> { return this.call<SafeUser | null>("currentUser"); },
+  async logout(): Promise<void> { try { await this.call<void>("logout"); } finally { sessionStorage.removeItem(SESSION_KEY); } },
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> { return this.call<void>("changePassword", [currentPassword, newPassword]); },
+  async listUsers(): Promise<SafeUser[]> { return this.call<SafeUser[]>("listUsers"); },
+  async createUser(input: CreateUserInput): Promise<SafeUser> { return this.call<SafeUser>("createUser", [input]); },
+  async updateUser(id: string, patch: Partial<Pick<AuthUser, "firstName" | "lastName" | "phone" | "jobTitle" | "department" | "team" | "role" | "extraPermissions" | "dataScope" | "status" | "adminNotes" | "mustChangePassword">>): Promise<SafeUser> { return this.call<SafeUser>("updateUser", [id, patch]); },
+  async softDeleteUser(id: string): Promise<void> { return this.call<void>("softDeleteUser", [id]); },
+  async updateOwnProfile(patch: Pick<AuthUser, "firstName" | "lastName" | "phone">): Promise<SafeUser> { return this.call<SafeUser>("updateOwnProfile", [patch]); },
+  async sessions(): Promise<AuthSession[]> { return this.call<AuthSession[]>("sessions"); },
+  async revokeSession(id: string): Promise<void> { return this.call<void>("revokeSession", [id]); },
+  async auditLogs(): Promise<AuditLog[]> { return this.call<AuditLog[]>("auditLogs"); },
+  async revokeAllSessions(userId: string): Promise<void> { void userId; },
+  async revokeOtherSessions(userId: string): Promise<void> { void userId; },
+  async requireUser(): Promise<SafeUser> {
+    const user = await this.currentUser();
+    if (!user) throw new Error("ابتدا وارد شوید.");
+    return user;
+  },
+  async requirePermission(permission: Permission): Promise<SafeUser> {
+    const user = await this.requireUser();
+    if (!user.permissions.includes(permission)) throw new Error("شما به این بخش دسترسی ندارید.");
+    return user;
+  },
+  hasPermission(user: SafeUser | null, permission: Permission): boolean { return userHasPermission(user, permission); },
+  roles(): Role[] { return ROLES; },
+  dataScopes(): DataScope[] { return DATA_SCOPES; },
+};
+
+export const authService = USE_REMOTE_API && !isDesktopRuntime ? remoteAuthService : browserAuthService;
 export { ALL_PERMISSIONS, ROLES };
 
 
