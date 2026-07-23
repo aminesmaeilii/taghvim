@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../components/app-shell";
-import { ForcePasswordChangePage, LoginPage, ProfilePage, SessionsPage } from "../features/auth/auth-pages";
+import { LoginPage, ProfilePage, SessionsPage } from "../features/auth/auth-pages";
 import { ContentListPage } from "../features/content/content-list-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { CalendarPage } from "../features/calendar/calendar-page";
@@ -51,14 +51,12 @@ function ProtectedApp() {
   const { user, loading } = useAuth();
   if (loading) return <div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.mustChangePassword) return <Navigate to="/force-password-change" replace />;
   return <AppShell />;
 }
 
 export function App() {
   return <ErrorBoundary><QueryClientProvider client={queryClient}><AuthProvider><HashRouter><ShortcutHandler /><Routes>
     <Route path="login" element={<LoginPage />} />
-    <Route path="force-password-change" element={<ForcePasswordChangePage />} />
     <Route element={<ProtectedApp />}>
       <Route index element={<DashboardPage />} />
       <Route path="calendar" element={<CalendarPage />} />

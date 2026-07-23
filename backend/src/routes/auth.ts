@@ -88,7 +88,7 @@ async function ensureBootstrapAdmin(snapshot: AuthSnapshot): Promise<boolean> {
   const admin: AuthUser = {
     id: randomUUID(), username: process.env.BOOTSTRAP_ADMIN_USERNAME || "taghvim-root", email: "root@taghvim.app", firstName: "مدیر", lastName: "سیستم",
     phone: null, avatarUrl: null, jobTitle: "Super Admin", department: "مدیریت", team: "هسته", role: "SUPER_ADMIN", extraPermissions: [],
-    dataScope: "ALL", status: "ACTIVE", mustChangePassword: true, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: null,
+    dataScope: "ALL", status: "ACTIVE", mustChangePassword: false, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: now(),
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: "Bootstrap account",
   };
   snapshot.users.push(admin);
@@ -190,12 +190,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const actor = await requirePermission(snapshot, req, "users.create");
       const input = args[0] as CreateUserInput;
       const normalizedEmail = input.email?.trim().toLowerCase() ?? "";
-      const validation = validatePassword(input.temporaryPassword, { username: input.username, email: normalizedEmail });
+      const validation = validatePassword(input.password, { username: input.username, email: normalizedEmail });
       if (validation) throw new Error(validation);
       if (snapshot.users.some((user) => user.username.toLowerCase() === input.username.toLowerCase())) throw new Error("نام کاربری تکراری است.");
       if (normalizedEmail && snapshot.users.some((user) => user.email.toLowerCase() === normalizedEmail)) throw new Error("ایمیل تکراری است.");
-      const { hash, salt } = await hashPassword(input.temporaryPassword);
-      const user: AuthUser = { ...input, email: normalizedEmail || `${input.username.toLowerCase()}@no-email.local`, id: randomUUID(), phone: input.phone ?? null, avatarUrl: null, jobTitle: input.jobTitle ?? null, department: input.department ?? null, team: input.team ?? null, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: null, failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: input.adminNotes ?? null };
+      const { hash, salt } = await hashPassword(input.password);
+      const { password, ...userInput } = input;
+      void password;
+      const user: AuthUser = { ...userInput, email: normalizedEmail || `${input.username.toLowerCase()}@no-email.local`, id: randomUUID(), phone: input.phone ?? null, avatarUrl: null, jobTitle: input.jobTitle ?? null, department: input.department ?? null, team: input.team ?? null, mustChangePassword: false, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: now(), failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: input.adminNotes ?? null };
       snapshot.users.push(user);
       await addAudit(snapshot, { actorUserId: actor.id, targetUserId: user.id, action: "users.create", result: "success", metadata: { role: user.role } });
       changed = true; data = toSafeUser(user);

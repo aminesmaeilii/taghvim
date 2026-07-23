@@ -22,7 +22,7 @@ export function LoginPage() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  if (!loading && user) return <Navigate to={user.mustChangePassword ? "/force-password-change" : "/"} replace />;
+  if (!loading && user) return <Navigate to="/" replace />;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (pending) return;
@@ -43,7 +43,7 @@ export function ForcePasswordChangePage() {
   const [repeat, setRepeat] = useState("");
   const [error, setError] = useState("");
   if (!user) return <Navigate to="/login" replace />;
-  if (!user.mustChangePassword) return <Navigate to="/" replace />;
+  return <Navigate to="/" replace />;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");

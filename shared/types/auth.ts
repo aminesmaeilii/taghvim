@@ -123,7 +123,6 @@ export interface CreateUserInput {
   extraPermissions: Permission[];
   dataScope: DataScope;
   status: AccountStatus;
-  temporaryPassword: string;
-  mustChangePassword: boolean;
+  password: string;
   adminNotes?: string;
 }
