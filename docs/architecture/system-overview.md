@@ -23,7 +23,7 @@ flowchart TD
 
 ## Planned/Schema Assets Present But Not Runtime-Wired
 
-PostgreSQL schema files are present in `database/postgres`, including a unified domain schema and backup catalog. The current backend code does not yet use PostgreSQL for live workspace operations.
+PostgreSQL schema files are present in `backend/database/postgres`, including a unified domain schema and backup catalog. The current backend code does not yet use PostgreSQL for live workspace operations.
 
 ## Frontend
 

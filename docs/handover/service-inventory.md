@@ -11,9 +11,9 @@ Last verified version: `0.1.1` / commit `8842877`
 | Vercel functions | proxy, upload, schedulers | `api/` | `vercel.json` rewrites | function logs/provider |
 | Backend API | workspace RPC and health | `backend/`, `render.yaml` | Render config | `/health/ready` |
 | Shared domain/services | business logic | `shared/` | npm/TS imports | tests |
-| PostgreSQL schema | target relational schema | `database/postgres/` | SQL files | not runtime-wired |
+| PostgreSQL schema | target relational schema | `backend/database/postgres/` | SQL files | not runtime-wired |
 | Tauri desktop | desktop shell | `src-tauri/` | Tauri config | local desktop build |
-| Backup tooling | logical backup/restore test | `scripts/backup/` | npm scripts | `npm run test:backup` |
+| Backup tooling | logical backup/restore test | `backend/scripts/backup/` | npm scripts | `npm run test:backup` |
 | Performance tooling | load/budget checks | `scripts/performance/` | npm scripts | `npm run perf:budget` |
 
 ## Secret Names Without Values

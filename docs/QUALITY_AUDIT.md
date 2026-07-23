@@ -7,7 +7,7 @@ Date: 2026-07-23
 - Frontend: Vite, React 19, React Router, TanStack Query, Zustand, Tailwind-style CSS, PWA manifest and service worker.
 - Backend: Node HTTP server plus Vercel/Render-compatible RPC route at `/api/workspace`.
 - Persistent storage today: Upstash Redis workspace snapshot in production backend when configured; local `.data/workspace-snapshot.json` fallback for long-running backend; browser IndexedDB fallback for web/offline workspace data; browser IndexedDB for authentication; Tauri SQLite migrations for desktop.
-- SQL state: SQLite migrations exist for Tauri. A non-destructive PostgreSQL target schema was added in `database/postgres/001_unified_schema.sql`, but runtime repositories are not yet fully cut over to PostgreSQL.
+- SQL state: SQLite migrations exist for Tauri. A non-destructive PostgreSQL target schema was added in `backend/database/postgres/001_unified_schema.sql`, but runtime repositories are not yet fully cut over to PostgreSQL.
 - Auth: local browser IndexedDB with PBKDF2 password hashes and session token hashes in sessionStorage. This is documented as local/internal rather than production-grade server auth.
 - Authorization: frontend permission checks plus repository-level checks for selected sensitive operations. There is no complete backend-authenticated API boundary yet.
 - Background jobs: reminder processing endpoint and monitoring collection endpoint exist. Jobs are persisted in workspace state, not yet SQL-backed.

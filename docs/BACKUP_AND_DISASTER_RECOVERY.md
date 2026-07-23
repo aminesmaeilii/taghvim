@@ -6,7 +6,7 @@ Date: 2026-07-23
 
 Persistent data found in this repository:
 
-- PostgreSQL target schema in `database/postgres`, covering users, roles, permissions, workspaces, calendar content, tasks, campaigns, chat, reminders, notifications, push subscriptions, monitoring sources, monitoring snapshots, jobs, settings, and audit logs.
+- PostgreSQL target schema in `backend/database/postgres`, covering users, roles, permissions, workspaces, calendar content, tasks, campaigns, chat, reminders, notifications, push subscriptions, monitoring sources, monitoring snapshots, jobs, settings, and audit logs.
 - Current backend persistence uses Upstash Redis when configured, with `.data/workspace-snapshot.json` as a local fallback. The fallback is not a production backup.
 - Uploaded files use the Vercel Blob upload endpoint. SQL backups do not protect blob objects.
 - PWA/offline data can exist in browser IndexedDB. Production source of truth must be server-side; browser data is not centrally recoverable.

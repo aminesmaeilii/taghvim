@@ -21,7 +21,7 @@ Last verified commit during handover: `8842877`
 - Frontend: React 19, TypeScript, Vite, TanStack Query, Zustand, Tailwind base, Vazirmatn.
 - Backend: Node HTTP server, shared TypeScript services, optional Upstash Redis persistence.
 - Deployment config: Vercel frontend/functions, Render backend.
-- Database assets: PostgreSQL SQL schema under `database/postgres`, Tauri migrations under `src-tauri/migrations`.
+- Database assets: PostgreSQL SQL schema under `backend/database/postgres`, Tauri migrations under `src-tauri/migrations`.
 
 ## Repository Structure
 
@@ -29,9 +29,9 @@ Last verified commit during handover: `8842877`
 - `backend/`: Node backend server and workspace route.
 - `api/`: Vercel serverless proxy/scheduler/upload endpoints.
 - `shared/`: domain types, repositories, authorization, reports, monitoring, observability.
-- `database/postgres/`: unified PostgreSQL schema and backup catalog migration.
+- `backend/database/postgres/`: unified PostgreSQL schema and backup catalog migration.
 - `src-tauri/`: Tauri desktop shell and SQLite migrations.
-- `scripts/backup/`: guarded backup, verify, restore-test, and retention tools.
+- `backend/scripts/backup/`: guarded backup, verify, restore-test, and retention tools.
 - `scripts/performance/`: synthetic data, load-test, and bundle-budget tools.
 - `docs/`: product, development, operations, security, and handover documentation.
 

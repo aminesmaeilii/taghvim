@@ -8,7 +8,7 @@ Date: 2026-07-23
 - Frontend: Vite/React PWA, production output `frontend/dist`.
 - Backend: Node HTTP server, built by `npm --workspace backend run build`, started by `npm --workspace backend run start`.
 - API proxy: Vercel functions under `api/` forward selected requests to the persistent backend.
-- Database state: PostgreSQL target schema exists in `database/postgres/001_unified_schema.sql`, but runtime SQL integration is not complete. Current backend persistence is Upstash Redis workspace snapshot, with local file fallback for non-production long-running processes.
+- Database state: PostgreSQL target schema exists in `backend/database/postgres/001_unified_schema.sql`, but runtime SQL integration is not complete. Current backend persistence is Upstash Redis workspace snapshot, with local file fallback for non-production long-running processes.
 - Background jobs: reminder and monitoring HTTP scheduler endpoints exist. A separate SQL-backed worker/queue does not exist yet.
 - Real-time: no WebSocket/managed real-time provider is currently implemented.
 - File storage: Vercel Blob client upload endpoint exists; production upload now requires `BLOB_UPLOAD_SECRET`.
@@ -140,7 +140,7 @@ Safe future rollout:
 
 1. Create managed PostgreSQL staging database.
 2. Add migration runner and schema version table.
-3. Run `database/postgres/001_unified_schema.sql` in staging.
+3. Run `backend/database/postgres/001_unified_schema.sql` in staging.
 4. Implement SQL repository behind existing service contracts.
 5. Migrate snapshot data with id mapping and verification.
 6. Back up production data.

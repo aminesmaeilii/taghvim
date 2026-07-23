@@ -12,7 +12,7 @@ const id = backupId("pg");
 const startedAt = new Date().toISOString();
 const appVersion = process.env.APP_VERSION ?? "0.1.1";
 const commitSha = process.env.COMMIT_SHA ?? null;
-const migrationVersion = process.env.DB_MIGRATION_VERSION ?? "database/postgres/001_unified_schema.sql";
+const migrationVersion = process.env.DB_MIGRATION_VERSION ?? "backend/database/postgres/001_unified_schema.sql";
 let workDir;
 
 if (!databaseUrl) throw new Error("BACKUP_DATABASE_URL or DATABASE_URL is required.");

@@ -8,7 +8,7 @@ The requested full integration cannot be completed safely yet because the unifie
 
 What exists:
 
-- Additive PostgreSQL target schema: `database/postgres/001_unified_schema.sql`
+- Additive PostgreSQL target schema: `backend/database/postgres/001_unified_schema.sql`
 - Tauri SQLite migrations: `src-tauri/migrations/*.sql`
 - Shared domain/repository interfaces
 
@@ -107,7 +107,7 @@ Do not expose SQL errors, stack traces, password hashes, session token hashes, p
 ## Required Next Implementation Sequence
 
 1. Add `pg` or a selected query layer plus server-only database client.
-2. Add migration runner for `database/postgres`.
+2. Add migration runner for `backend/database/postgres`.
 3. Add test database guard that refuses destructive cleanup unless `NODE_ENV=test` and database name/URL is marked test.
 4. Implement server-side auth sessions and migrate browser auth data through an explicit user-approved flow.
 5. Replace generic unauthenticated workspace RPC with authenticated module endpoints.

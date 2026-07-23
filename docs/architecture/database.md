@@ -9,8 +9,8 @@ The repository contains PostgreSQL schema files, but live backend persistence cu
 
 ## PostgreSQL Files
 
-- `database/postgres/001_unified_schema.sql`: target unified schema.
-- `database/postgres/002_backup_catalog.sql`: backup metadata catalog.
+- `backend/database/postgres/001_unified_schema.sql`: target unified schema.
+- `backend/database/postgres/002_backup_catalog.sql`: backup metadata catalog.
 
 ## Domain ERD Summary
 

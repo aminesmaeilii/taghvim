@@ -19,7 +19,7 @@ if (!record) throw new Error("No verified backup record found for restore test."
 const objectPath = join(storageDir, record.objectLocationReference);
 const startedAt = Date.now();
 await runCommand(process.env.PG_RESTORE_BIN ?? "pg_restore", ["--clean", "--if-exists", "--no-owner", "--no-acl", "--dbname", restoreDatabaseUrl, objectPath]);
-await runCommand(process.env.PSQL_BIN ?? "psql", [restoreDatabaseUrl, "--set", "ON_ERROR_STOP=1", "--file", "scripts/backup/sql/restore-verification.sql"]);
+await runCommand(process.env.PSQL_BIN ?? "psql", [restoreDatabaseUrl, "--set", "ON_ERROR_STOP=1", "--file", "backend/scripts/backup/sql/restore-verification.sql"]);
 const updated = { ...record, restoreTestStatus: "PASSED", lastRestoreTestAt: new Date().toISOString(), restoreTestDurationSeconds: Math.round((Date.now() - startedAt) / 1000) };
 await appendCatalogRecord(catalogPath, updated);
 console.log(JSON.stringify({ ok: true, id: record.id, restoreTestDurationSeconds: updated.restoreTestDurationSeconds }));
