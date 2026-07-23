@@ -11,10 +11,9 @@ import { useCurrentProfile } from "../hooks/use-profile";
 import { useProfileSync } from "../hooks/use-profile-sync";
 
 const navigation = [
-  ["/", "داشبورد", Gauge], ["/calendar", "تقویم محتوا", CalendarDays], ["/gantt", "گانت چارت", GanttChart], ["/workflow", "گردش کار", Workflow], ["/contents", "فهرست محتوا", TableProperties],
+  ["/", "داشبورد", Gauge], ["/tasks", "تودو لیست تیم", CheckSquare], ["/calendar", "تقویم محتوا", CalendarDays], ["/gantt", "گانت چارت", GanttChart], ["/workflow", "گردش کار", Workflow], ["/contents", "فهرست محتوا", TableProperties],
   ["/campaigns", "کمپین ها", FolderKanban], ["/ideas", "ایده ها", Lightbulb], ["/advertising", "تبلیغات", Megaphone],
   ["/templates", "قالب ها", ClipboardList], ["/education", "آموزش", GraduationCap],
-  ["/tasks", "تودو لیست تیم", CheckSquare],
   ["/notes", "یادداشت های شخصی", NotebookPen, true],
   ["/reports", "گزارش ها", Sparkles], ["/activity", "تاریخچه تغییرات", History], ["/settings", "تنظیمات", Settings],
 ] as const;
