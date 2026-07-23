@@ -1,4 +1,5 @@
 import type { AccountStatus, AuditLog, AuthSession, AuthUser, CreateUserInput, DataScope, LoginResult, Permission, Role, SafeUser } from "@shared/types/auth";
+import { ALL_PERMISSIONS, DATA_SCOPES, ROLES, effectivePermissions, hasPermission as userHasPermission } from "@shared/services/authorization";
 
 const DB_NAME = "zambil-auth-v2";
 const LEGACY_DB_NAME = "zambil-auth";
@@ -7,20 +8,6 @@ const SESSION_KEY = "zambil.auth.session";
 const SESSION_HOURS = 12;
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
-
-export const ALL_PERMISSIONS: Permission[] = [
-  "dashboard.view", "users.view", "users.create", "users.update", "users.disable", "users.delete", "users.restore", "users.assign_role", "users.assign_permission", "users.reset_password", "users.view_activity",
-  "roles.view", "roles.create", "roles.update", "roles.delete", "roles.assign_permissions", "settings.view", "settings.update",
-  "profile.view_own", "profile.update_own", "profile.change_password", "reports.view", "reports.export", "audit_logs.view", "security_sessions.view_own", "security_sessions.revoke_own", "security_sessions.manage_all",
-];
-
-export const ROLES: Role[] = [
-  { key: "SUPER_ADMIN", label: "مدیر کل", permissions: ALL_PERMISSIONS },
-  { key: "ADMIN", label: "مدیر", permissions: ALL_PERMISSIONS.filter((item) => item !== "roles.delete") },
-  { key: "MANAGER", label: "مدیر تیم", permissions: ["dashboard.view", "users.view", "profile.view_own", "profile.update_own", "profile.change_password", "reports.view", "reports.export", "security_sessions.view_own", "security_sessions.revoke_own"] },
-  { key: "USER", label: "کاربر", permissions: ["dashboard.view", "profile.view_own", "profile.update_own", "profile.change_password", "reports.view", "security_sessions.view_own", "security_sessions.revoke_own"] },
-  { key: "VIEWER", label: "مشاهده گر", permissions: ["dashboard.view", "profile.view_own", "reports.view", "security_sessions.view_own"] },
-];
 
 function now(): string { return new Date().toISOString(); }
 function addHours(hours: number): string { const date = new Date(); date.setHours(date.getHours() + hours); return date.toISOString(); }
@@ -102,14 +89,10 @@ async function addAudit(entry: Omit<AuditLog, "id" | "createdAt">): Promise<void
   await storePut("auditLogs", { ...entry, id: crypto.randomUUID(), createdAt: now() } satisfies AuditLog);
 }
 
-function permissionsFor(user: AuthUser): Permission[] {
-  return [...new Set([...(ROLES.find((role) => role.key === user.role)?.permissions ?? []), ...user.extraPermissions])];
-}
-
 function toSafeUser(user: AuthUser): SafeUser {
   const { passwordHash, passwordSalt, ...safe } = user;
   void passwordHash; void passwordSalt;
-  return { ...safe, permissions: permissionsFor(user) };
+  return { ...safe, permissions: effectivePermissions(user) };
 }
 
 function validatePassword(password: string, user?: Pick<AuthUser, "username" | "email">): string | null {
@@ -289,8 +272,13 @@ export const authService = {
     return user;
   },
   hasPermission(user: SafeUser | null, permission: Permission): boolean {
-    return Boolean(user?.permissions.includes(permission));
+    return userHasPermission(user, permission);
   },
   roles(): Role[] { return ROLES; },
-  dataScopes(): DataScope[] { return ["ALL", "ORGANIZATION", "DEPARTMENT", "TEAM", "ASSIGNED", "OWN", "NONE"]; },
+  dataScopes(): DataScope[] { return DATA_SCOPES; },
 };
+
+export { ALL_PERMISSIONS, ROLES };
+
+
+

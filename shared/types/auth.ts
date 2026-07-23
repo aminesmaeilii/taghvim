@@ -29,7 +29,18 @@ export type Permission =
   | "audit_logs.view"
   | "security_sessions.view_own"
   | "security_sessions.revoke_own"
-  | "security_sessions.manage_all";
+  | "security_sessions.manage_all"
+  | "technical_health.read"
+  | "technical_logs.read"
+  | "technical_alerts.manage"
+  | "technical_jobs.retry"
+  | "backup.status.read"
+  | "backup.create"
+  | "backup.verify"
+  | "backup.restore_test"
+  | "backup.restore_production"
+  | "backup.retention.manage"
+  | "backup.delete";
 
 export interface Role {
   key: RoleKey;

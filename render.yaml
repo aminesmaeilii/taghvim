@@ -5,10 +5,10 @@ services:
     plan: free
     buildCommand: npm install && npm --workspace backend run build
     startCommand: npm --workspace backend run start
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: 24
       - key: FRONTEND_URL
         value: https://taghvim.vercel.app
       - key: ALLOWED_ORIGINS
@@ -17,3 +17,5 @@ services:
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
         sync: false
+      - key: CRON_SECRET
+        generateValue: true

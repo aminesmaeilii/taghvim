@@ -35,6 +35,7 @@ export function ReportsPage() {
     enabled: Boolean(user?.permissions.includes("reports.view")),
     staleTime: 20_000,
   });
+  const monitoring = useQuery({ queryKey: ["monitoring-overview"], queryFn: () => contentRepository.monitoringOverview(), enabled: Boolean(user?.permissions.includes("reports.view")), staleTime: 30_000 });
 
   const data = report.data;
 
@@ -57,7 +58,12 @@ export function ReportsPage() {
     {!presentation && <div className="report-mode-tabs">{(Object.keys(modeLabels) as ReportMode[]).map((item) => <button key={item} className={mode === item ? "active" : ""} onClick={() => setMode(item)}>{modeLabels[item]}</button>)}</div>}
     {!presentation && filtersOpen && <div className="report-filter-popover"><FilterBar workspace={workspace.data} filters={filters} preset={preset} setPreset={setPreset} onChange={setFilters} /></div>}
 
-    {mode === "overview" && <Overview data={data} presentation={presentation} />}
+    {mode === "overview" && <><Overview data={data} presentation={presentation} />{!presentation && monitoring.data && <section className="report-grid-pro"><Breakdown title="خلاصه مانیتورینگ" items={[
+      { id: "active", label: "کانال های فعال", value: monitoring.data.activeSources, color: "#0f766e" },
+      { id: "platforms", label: "پلتفرم های پشتیبانی شده", value: monitoring.data.supportedPlatforms, color: "#2563eb" },
+      { id: "stale", label: "داده قدیمی", value: monitoring.data.staleSources, color: "#b45309" },
+      { id: "errors", label: "خطای دریافت", value: monitoring.data.errorSources, color: "#be123c" },
+    ]} /><section className="surface report-insight-card"><header><Sparkles size={19} /><span>مانیتورینگ شبکه ها</span></header><h3>{monitoring.data.updatedToday ? "داده امروز ثبت شده است" : "برخی منابع در انتظار دریافت هستند"}</h3><p>این خلاصه فقط شاخص های تجمیعی مانیتورینگ را نشان می دهد و جزئیات فنی اتصال ها در ماژول مانیتورینگ می ماند.</p><a className="button button-secondary button-sm" href="#/monitoring">باز کردن مانیتورینگ</a></section></section>}</>}
     {mode === "operations" && <Operations data={data} />}
     {mode === "collaboration" && <Collaboration data={data} />}
   </div>;

@@ -1,4 +1,4 @@
-import { useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -28,32 +28,58 @@ export function DotBadge({ label, color }: { label: string; color: string }) { r
 
 export function Dialog({ open, title, description, onClose, children, wide = false }: { open: boolean; title: string; description?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!open) return;
-    const handler = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = () => dialogRef.current ? [...dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)].filter((item) => !item.hasAttribute("disabled") && item.tabIndex !== -1) : [];
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.setTimeout(() => focusables()[0]?.focus(), 0);
+    return () => { window.removeEventListener("keydown", handler); previouslyFocused?.focus(); };
   }, [onClose, open]);
   if (!open) return null;
   return <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}>
-    <section className={`dialog ${wide ? "dialog-wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={(event) => event.stopPropagation()}>
+    <section ref={dialogRef} className={`dialog ${wide ? "dialog-wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={(event) => event.stopPropagation()}>
       <header className="dialog-header"><div><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><IconButton label="بستن" onClick={onClose}><X size={19} /></IconButton></header>
       {children}
     </section>
   </div>;
 }
 
-export function Drawer({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+export function Drawer({ open, title, onClose, children, placement = "side" }: { open: boolean; title: string; onClose: () => void; children: ReactNode; placement?: "side" | "center" }) {
   const titleId = useId();
+  const drawerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!open) return;
-    const handler = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = () => drawerRef.current ? [...drawerRef.current.querySelectorAll<HTMLElement>(focusableSelector)].filter((item) => !item.hasAttribute("disabled") && item.tabIndex !== -1) : [];
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.setTimeout(() => focusables()[0]?.focus(), 0);
+    return () => { window.removeEventListener("keydown", handler); previouslyFocused?.focus(); };
   }, [onClose, open]);
   if (!open) return null;
-  return <div className="drawer-backdrop" role="presentation" onMouseDown={onClose}>
-    <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={(event) => event.stopPropagation()}>
+  return <div className={`drawer-backdrop ${placement === "center" ? "drawer-backdrop-center" : ""}`} role="presentation" onMouseDown={onClose}>
+    <aside ref={drawerRef} className={`drawer ${placement === "center" ? "drawer-center" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={(event) => event.stopPropagation()}>
       <header className="drawer-header"><h2 id={titleId}>{title}</h2><IconButton label="بستن" onClick={onClose}><X size={19} /></IconButton></header>{children}
     </aside>
   </div>;
@@ -64,3 +90,5 @@ export function EmptyState({ title, description, action }: { title: string; desc
 }
 
 export function InlineSuccess({ children }: { children: ReactNode }) { return <span className="inline-success"><CheckCircle2 size={15} />{children}</span>; }
+
+const focusableSelector = "a[href], button, input, textarea, select, [tabindex]:not([tabindex='-1'])";

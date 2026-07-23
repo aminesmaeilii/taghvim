@@ -30,6 +30,11 @@ export function buildWorkspaceExcel(workspace: WorkspaceData): string {
     { name: "Reminders", rows: toRows(workspace.reminders ?? []) },
     { name: "Push Subscriptions", rows: toRows(workspace.pushSubscriptions ?? []) },
     { name: "Notifications", rows: toRows(workspace.notifications ?? []) },
+    { name: "Monitoring Platforms", rows: toRows(workspace.monitoringPlatforms ?? []) },
+    { name: "Monitoring Sources", rows: toRows(workspace.monitoringSources ?? []) },
+    { name: "Monitoring Snapshots", rows: toRows(workspace.monitoringSnapshots ?? []) },
+    { name: "Monitoring Jobs", rows: toRows(workspace.monitoringJobs ?? []) },
+    { name: "Monitoring Events", rows: toRows(workspace.monitoringEvents ?? []) },
   ];
 
   return `<?xml version="1.0"?>

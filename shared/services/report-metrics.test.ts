@@ -26,6 +26,8 @@ function workspace(tasks: TaskItem[]): WorkspaceData {
     userProfiles: [{ id: "u1", userId: "u1", displayName: "کاربر اول", avatarUrl: null, jobRole: null, lastSeenAt: "2026-07-20T00:00:00.000Z", createdAt: "2026-07-01T00:00:00.000Z", updatedAt: "2026-07-01T00:00:00.000Z" }],
     activityLog: [], learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [], tasks,
     chatConversations: [], chatMembers: [], chatMessages: [], reminders: [], pushSubscriptions: [], notifications: [],
+    monitoringPlatforms: [], monitoringPlatformCapabilities: [], monitoringSources: [], monitoringSourceCapabilities: [],
+    monitoringSnapshots: [], monitoredContents: [], monitoredContentSnapshots: [], monitoringJobs: [], monitoringDailyAggregates: [], monitoringEvents: [],
   };
 }
 

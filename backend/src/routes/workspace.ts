@@ -2,10 +2,11 @@ import { Redis } from "@upstash/redis";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { MemoryRepository, type ContentRepository } from "../../../shared/services/workspace-memory-repository.js";
+import { createLogEntry, normalizeCorrelationId, serializeLog } from "../../../shared/services/observability.js";
 
 type VercelRequest = {
   method?: string;
-  headers: { origin?: string };
+  headers: { origin?: string; "x-request-id"?: string; "x-correlation-id"?: string };
   body: unknown;
 };
 
@@ -70,6 +71,10 @@ const MUTATIONS = new Set<keyof ContentRepository>([
   "savePushSubscription",
   "revokePushSubscription",
   "processDueReminders",
+  "saveMonitoringSource",
+  "archiveMonitoringSource",
+  "saveMonitoringPlatform",
+  "runMonitoringCollection",
 ]);
 
 function setCors(req: VercelRequest, res: VercelResponse): void {
@@ -140,27 +145,45 @@ function getRedis(): Redis | null {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const started = Date.now();
+  const requestId = normalizeCorrelationId(req.headers["x-request-id"] ?? req.headers["x-correlation-id"]);
+  res.setHeader("x-request-id", requestId);
   setCors(req, res);
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
+  if (req.method !== "POST") {
+    logRequest("warn", "workspace_method_not_allowed", requestId, req.method, null, 405, started);
+    return res.status(405).json({ error: "Method not allowed.", requestId });
+  }
 
   try {
     const body = req.body as RpcBody;
     const method = body.method;
-    if (!method) return res.status(400).json({ error: "Missing method." });
+    if (!method) {
+      logRequest("warn", "workspace_missing_method", requestId, req.method, null, 400, started);
+      return res.status(400).json({ error: "Missing method.", requestId });
+    }
 
     const repository = new MemoryRepository();
     await loadSnapshot(repository);
 
     const fn = repository[method];
-    if (typeof fn !== "function") return res.status(400).json({ error: "Unknown method." });
+    if (typeof fn !== "function") {
+      logRequest("warn", "workspace_unknown_method", requestId, req.method, String(method), 400, started);
+      return res.status(400).json({ error: "Unknown method.", requestId });
+    }
 
     const data = await (fn as (...args: unknown[]) => Promise<unknown>).apply(repository, body.args ?? []);
     if (MUTATIONS.has(method)) await saveSnapshot(repository);
 
+    logRequest("info", "workspace_request_completed", requestId, req.method, String(method), 200, started);
     return res.status(200).json({ data });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected backend error.";
-    return res.status(500).json({ error: message });
+    console.error(serializeLog(createLogEntry({ level: "error", event: "workspace_request_failed", requestId, route: "/api/workspace", method: req.method ?? null, statusCode: 500, durationMs: Date.now() - started, errorCode: "WORKSPACE_REQUEST_FAILED", metadata: { message } })));
+    return res.status(500).json({ error: message, requestId });
   }
+}
+
+function logRequest(level: "info" | "warn", event: string, requestId: string, method: string | undefined, rpcMethod: string | null, statusCode: number, started: number): void {
+  console[level](serializeLog(createLogEntry({ level, event, requestId, route: "/api/workspace", method: method ?? null, statusCode, durationMs: Date.now() - started, metadata: { rpcMethod } })));
 }

@@ -2,7 +2,8 @@ import { isDesktopRuntime, platformInvoke } from "./platform";
 import { API_BASE_URL, USE_REMOTE_API } from "./api-config";
 import { MemoryRepository, type ContentRepository, type NewContent, type ReferenceEntity, type ReferenceKind } from "@shared/services/workspace-memory-repository";
 import type { SafeUser } from "@shared/types/auth";
-import type { ActivityLogEntry, AdBudget, AppNotification, AppSettings, Campaign, ChatContextType, ChatConversationSummary, ChatMessage, ChatMessagePage, Content, ContentFilters, ContentIdea, ContentTemplate, DashboardData, Highlight, LearningMaterial, PersonalNote, PushSubscriptionRecord, Reminder, ReminderRelatedEntityType, ReportFilters, ReportSnapshot, TaskItem, UserProfile, WorkspaceData } from "@shared/types/domain";
+import type { ActivityLogEntry, AdBudget, AppNotification, AppSettings, Campaign, ChatContextType, ChatConversationSummary, ChatMessage, ChatMessagePage, Content, ContentFilters, ContentIdea, ContentTemplate, DashboardData, Highlight, LearningMaterial, MonitoringJobTrigger, MonitoringOverview, MonitoringPlatform, MonitoringSource, PersonalNote, PushSubscriptionRecord, Reminder, ReminderRelatedEntityType, ReportFilters, ReportSnapshot, TaskItem, UserProfile, WorkspaceData } from "@shared/types/domain";
+import type { TechnicalHealthOverview } from "@shared/services/observability";
 
 export type { ContentRepository, ReferenceEntity, ReferenceKind };
 type BrowserSnapshot = { id: "workspace"; workspace: WorkspaceData; settings: AppSettings | null };
@@ -113,6 +114,12 @@ class BrowserRepository implements ContentRepository {
   revokePushSubscription(userId: string, subscriptionId: string) { return this.run(() => this.memory.revokePushSubscription(userId, subscriptionId), true); }
   listPushSubscriptions(userId: string) { return this.run(() => this.memory.listPushSubscriptions(userId)); }
   processDueReminders(atUtc?: string) { return this.run(() => this.memory.processDueReminders(atUtc), true); }
+  monitoringOverview() { return this.run(() => this.memory.monitoringOverview()); }
+  saveMonitoringSource(source: MonitoringSource, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.run(() => this.memory.saveMonitoringSource(source, viewer), true); }
+  archiveMonitoringSource(sourceId: string, archived: boolean, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.run(() => this.memory.archiveMonitoringSource(sourceId, archived, viewer), true); }
+  saveMonitoringPlatform(platform: MonitoringPlatform, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.run(() => this.memory.saveMonitoringPlatform(platform, viewer), true); }
+  runMonitoringCollection(triggerType?: MonitoringJobTrigger, sourceId?: string | null, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.run(() => this.memory.runMonitoringCollection(triggerType, sourceId, viewer), true); }
+  technicalHealth(viewer?: Pick<SafeUser, "id" | "permissions">) { return this.run(() => this.memory.technicalHealth(viewer)); }
 }
 
 class TauriRepository implements ContentRepository {
@@ -166,19 +173,26 @@ class TauriRepository implements ContentRepository {
   revokePushSubscription(userId: string, subscriptionId: string) { return this.call<void>("revoke_push_subscription", { userId, subscriptionId }); }
   listPushSubscriptions(userId: string) { return this.call<PushSubscriptionRecord[]>("list_push_subscriptions", { userId }); }
   processDueReminders(atUtc?: string) { return this.call<{ processed: number; notificationsCreated: number; failed: number }>("process_due_reminders", { atUtc }); }
+  monitoringOverview() { return this.call<MonitoringOverview>("monitoring_overview"); }
+  saveMonitoringSource(source: MonitoringSource, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<MonitoringSource>("save_monitoring_source", { source, viewer }); }
+  archiveMonitoringSource(sourceId: string, archived: boolean, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<void>("archive_monitoring_source", { sourceId, archived, viewer }); }
+  saveMonitoringPlatform(platform: MonitoringPlatform, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<MonitoringPlatform>("save_monitoring_platform", { platform, viewer }); }
+  runMonitoringCollection(triggerType?: MonitoringJobTrigger, sourceId?: string | null, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<{ processed: number; succeeded: number; failed: number }>("run_monitoring_collection", { triggerType, sourceId, viewer }); }
+  technicalHealth(viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<TechnicalHealthOverview>("technical_health", { viewer }); }
 }
 
 class ApiRepository implements ContentRepository {
   constructor(private readonly baseUrl: string) {}
 
   private async call<T>(method: keyof ContentRepository, args: unknown[] = []): Promise<T> {
+    const requestId = `req_${crypto.randomUUID().slice(0, 8)}`;
     const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/workspace`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-request-id": requestId },
       body: JSON.stringify({ method, args }),
     });
-    const payload = await response.json().catch(() => null) as { data?: T; error?: string } | null;
-    if (!response.ok) throw new Error(payload?.error ?? "Backend request failed.");
+    const payload = await response.json().catch(() => null) as { data?: T; error?: string; requestId?: string } | null;
+    if (!response.ok) throw new Error(`${payload?.error ?? "Backend request failed."} (${payload?.requestId ?? response.headers.get("x-request-id") ?? requestId})`);
     return payload?.data as T;
   }
 
@@ -231,6 +245,12 @@ class ApiRepository implements ContentRepository {
   revokePushSubscription(userId: string, subscriptionId: string) { return this.call<void>("revokePushSubscription", [userId, subscriptionId]); }
   listPushSubscriptions(userId: string) { return this.call<PushSubscriptionRecord[]>("listPushSubscriptions", [userId]); }
   processDueReminders(atUtc?: string) { return this.call<{ processed: number; notificationsCreated: number; failed: number }>("processDueReminders", [atUtc]); }
+  monitoringOverview() { return this.call<MonitoringOverview>("monitoringOverview"); }
+  saveMonitoringSource(source: MonitoringSource, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<MonitoringSource>("saveMonitoringSource", [source, viewer]); }
+  archiveMonitoringSource(sourceId: string, archived: boolean, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<void>("archiveMonitoringSource", [sourceId, archived, viewer]); }
+  saveMonitoringPlatform(platform: MonitoringPlatform, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<MonitoringPlatform>("saveMonitoringPlatform", [platform, viewer]); }
+  runMonitoringCollection(triggerType?: MonitoringJobTrigger, sourceId?: string | null, viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<{ processed: number; succeeded: number; failed: number }>("runMonitoringCollection", [triggerType, sourceId, viewer]); }
+  technicalHealth(viewer?: Pick<SafeUser, "id" | "permissions">) { return this.call<TechnicalHealthOverview>("technicalHealth", [viewer]); }
 }
 
 export const contentRepository: ContentRepository = isDesktopRuntime

@@ -5,7 +5,7 @@ const PORT = Number(process.env.PORT || 3000);
 
 type RenderRequest = {
   method?: string;
-  headers: { origin?: string };
+  headers: { origin?: string; "x-request-id"?: string; "x-correlation-id"?: string };
   body: unknown;
 };
 
@@ -38,7 +38,11 @@ function createAdapter(req: IncomingMessage, res: ServerResponse, body: unknown)
   return {
     req: {
       method: req.method,
-      headers: { origin: Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin },
+      headers: {
+        origin: Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin,
+        "x-request-id": Array.isArray(req.headers["x-request-id"]) ? req.headers["x-request-id"][0] : req.headers["x-request-id"],
+        "x-correlation-id": Array.isArray(req.headers["x-correlation-id"]) ? req.headers["x-correlation-id"][0] : req.headers["x-correlation-id"],
+      },
       body,
     },
     res: {
@@ -65,9 +69,35 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
-    if (url.pathname === "/health") {
+    if (url.pathname === "/health" || url.pathname === "/health/live") {
       res.setHeader("content-type", "application/json; charset=utf-8");
-      res.end(JSON.stringify({ ok: true }));
+      res.end(JSON.stringify({ ok: true, service: "taghvim-backend" }));
+      return;
+    }
+
+    if (url.pathname === "/health/ready") {
+      const hasRedis = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+      const production = process.env.NODE_ENV === "production";
+      const ready = !production || hasRedis;
+      res.statusCode = ready ? 200 : 503;
+      res.setHeader("content-type", "application/json; charset=utf-8");
+      res.end(JSON.stringify({
+        ok: ready,
+        service: "taghvim-backend",
+        persistence: hasRedis ? "upstash-redis" : "local-file",
+        checks: { persistentStorage: hasRedis || !production },
+      }));
+      return;
+    }
+
+    if (url.pathname === "/health/version") {
+      res.setHeader("content-type", "application/json; charset=utf-8");
+      res.end(JSON.stringify({
+        applicationVersion: process.env.APP_VERSION ?? "0.1.1",
+        commitSha: process.env.COMMIT_SHA ?? null,
+        buildTimestamp: process.env.BUILD_TIMESTAMP ?? null,
+        environment: process.env.NODE_ENV ?? "development",
+      }));
       return;
     }
 

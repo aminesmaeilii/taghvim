@@ -397,6 +397,178 @@ export interface AppNotification {
   expiresAt?: string | null;
 }
 
+export type MonitoringPlatformKey = "INSTAGRAM" | "EITAA" | "BALE" | "TELEGRAM" | "RUBIKA" | string;
+export type MonitoringCapabilityKey =
+  | "PROFILE_INFORMATION" | "PROFILE_AVATAR" | "PROFILE_DESCRIPTION" | "VERIFICATION_STATUS"
+  | "FOLLOWER_COUNT" | "MEMBER_COUNT" | "SUBSCRIBER_COUNT" | "TOTAL_POST_COUNT"
+  | "RECENT_CONTENT" | "CONTENT_TEXT_PREVIEW" | "CONTENT_MEDIA_TYPE" | "CONTENT_VIEWS"
+  | "CONTENT_REACTIONS" | "CONTENT_COMMENTS" | "CONTENT_SHARES" | "CONTENT_FORWARDS"
+  | "CONTENT_LIKES" | "CONTENT_ENGAGEMENT" | "PUBLISHING_FREQUENCY" | "LATEST_CONTENT_DATE";
+export type MonitoringSupportLevel = "AVAILABLE" | "UNAVAILABLE" | "RESTRICTED" | "TEMPORARILY_FAILED" | "STALE" | "ESTIMATED";
+export type MonitoringSourceType = "PROFILE" | "CHANNEL" | "PAGE" | "GROUP";
+export type MonitoringJobStatus = "QUEUED" | "CLAIMED" | "RUNNING" | "SUCCESS" | "PARTIAL" | "FAILED" | "RATE_LIMITED" | "CANCELLED";
+export type MonitoringJobTrigger = "DAILY" | "SCHEDULED" | "LOGIN_RECOVERY" | "MANUAL" | "RETRY";
+export type MonitoringHealthStatus = "HEALTHY" | "LIMITED" | "NEEDS_REVIEW" | "DOWN" | "DISABLED";
+export type MonitoringDataQuality = "COMPLETE" | "PARTIAL" | "INCOMPLETE" | "STALE" | "INVALID";
+
+export interface MonitoringPlatform extends BaseEntity {
+  key: MonitoringPlatformKey;
+  displayNameFa: string;
+  displayNameEn: string;
+  icon: string;
+  accentColor: string;
+  connectorKey: string;
+  connectorVersion: string;
+  enabled: boolean;
+  supportedSourceTypes: MonitoringSourceType[];
+  allowedDomains: string[];
+  defaultCollectionIntervalMinutes: number;
+  minimumCollectionIntervalMinutes: number;
+  status: "ACTIVE" | "DISABLED" | "BETA";
+  healthStatus: MonitoringHealthStatus;
+  lastVerifiedAt?: string | null;
+}
+
+export interface MonitoringPlatformCapability {
+  platformKey: MonitoringPlatformKey;
+  capabilityKey: MonitoringCapabilityKey;
+  supported: boolean;
+  supportLevel: MonitoringSupportLevel;
+  lastVerifiedAt?: string | null;
+  limitationReason?: string | null;
+}
+
+export interface MonitoringSource extends BaseEntity {
+  platformKey: MonitoringPlatformKey;
+  displayName: string;
+  sourceType: MonitoringSourceType;
+  sourceUrl: string;
+  normalizedUrl: string;
+  handle?: string | null;
+  externalId?: string | null;
+  avatarUrl?: string | null;
+  enabled: boolean;
+  collectionEnabled: boolean;
+  collectionIntervalMinutes: number;
+  dailyCollectionTime: string;
+  freshnessThresholdHours: number;
+  timezone: string;
+  createdBy?: string | null;
+  identityChangedAt?: string | null;
+  identityChangeNote?: string | null;
+}
+
+export interface MonitoringSourceCapability {
+  sourceId: string;
+  capabilityKey: MonitoringCapabilityKey;
+  supported: boolean;
+  supportLevel: MonitoringSupportLevel;
+  lastDetectedAt?: string | null;
+  limitationReason?: string | null;
+}
+
+export interface MonitoringMetricValue {
+  capabilityKey: MonitoringCapabilityKey;
+  numericValue?: number | null;
+  textValue?: string | null;
+  unit?: string | null;
+  observed: boolean;
+  estimated: boolean;
+  qualityStatus: MonitoringSupportLevel;
+}
+
+export interface MonitoringSnapshot {
+  id: string;
+  sourceId: string;
+  collectedAt: string;
+  snapshotDate: string;
+  collectionJobId: string;
+  dataQuality: MonitoringDataQuality;
+  collectionMethod: "OFFICIAL_API" | "PUBLIC_ENDPOINT" | "PUBLIC_PAGE" | "CONNECTOR_LIMITATION";
+  normalizedMetrics: MonitoringMetricValue[];
+  createdAt: string;
+}
+
+export interface MonitoredContent {
+  id: string;
+  sourceId: string;
+  platformContentId: string;
+  canonicalUrl?: string | null;
+  publishedAt?: string | null;
+  textPreview?: string | null;
+  mediaType?: string | null;
+  firstObservedAt: string;
+  lastObservedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonitoredContentSnapshot {
+  id: string;
+  monitoredContentId: string;
+  collectedAt: string;
+  normalizedMetrics: MonitoringMetricValue[];
+  dataQuality: MonitoringDataQuality;
+}
+
+export interface MonitoringJob {
+  id: string;
+  platformKey: MonitoringPlatformKey;
+  sourceId: string;
+  batchId: string;
+  triggerType: MonitoringJobTrigger;
+  scheduledFor: string;
+  status: MonitoringJobStatus;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  recordsCollected: number;
+  retryCount: number;
+  errorCode?: string | null;
+  safeErrorMessage?: string | null;
+  createdAt: string;
+}
+
+export interface MonitoringDailyAggregate {
+  sourceId: string;
+  date: string;
+  metricKey: MonitoringCapabilityKey;
+  openingValue?: number | null;
+  closingValue?: number | null;
+  minimumValue?: number | null;
+  maximumValue?: number | null;
+  changeValue?: number | null;
+  changePercentage?: number | null;
+  sampleCount: number;
+  dataCompleteness: MonitoringDataQuality;
+}
+
+export interface MonitoringEvent {
+  id: string;
+  sourceId?: string | null;
+  platformKey?: MonitoringPlatformKey | null;
+  eventType: string;
+  title: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export interface MonitoringOverview {
+  generatedAt: string;
+  activeSources: number;
+  supportedPlatforms: number;
+  updatedToday: number;
+  awaitingCollection: number;
+  staleSources: number;
+  errorSources: number;
+  lastSuccessfulCollection?: string | null;
+  nextScheduledBatch?: string | null;
+  dataQuality: MonitoringDataQuality;
+  platforms: MonitoringPlatform[];
+  sources: Array<MonitoringSource & { platform?: MonitoringPlatform; latestSnapshot?: MonitoringSnapshot | null; latestJob?: MonitoringJob | null; sparkline: number[]; capabilities: MonitoringSourceCapability[] }>;
+  events: MonitoringEvent[];
+}
+
 export interface NotificationPreferences {
   pushEnabled: boolean;
   defaultReminderMinutes: number[];
@@ -432,6 +604,16 @@ export interface WorkspaceData {
   reminders: Reminder[];
   pushSubscriptions: PushSubscriptionRecord[];
   notifications: AppNotification[];
+  monitoringPlatforms: MonitoringPlatform[];
+  monitoringPlatformCapabilities: MonitoringPlatformCapability[];
+  monitoringSources: MonitoringSource[];
+  monitoringSourceCapabilities: MonitoringSourceCapability[];
+  monitoringSnapshots: MonitoringSnapshot[];
+  monitoredContents: MonitoredContent[];
+  monitoredContentSnapshots: MonitoredContentSnapshot[];
+  monitoringJobs: MonitoringJob[];
+  monitoringDailyAggregates: MonitoringDailyAggregate[];
+  monitoringEvents: MonitoringEvent[];
 }
 
 export interface AppSettings {

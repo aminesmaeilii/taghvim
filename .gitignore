@@ -43,6 +43,7 @@ tmp/
 backend/.data/
 .data/
 temp/
+performance-results/
 
 # OS and editor files
 .DS_Store

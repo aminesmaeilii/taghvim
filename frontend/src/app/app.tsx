@@ -25,6 +25,8 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, ref
 
 const PdfReaderPage = lazy(() => import("../features/education/pdf-reader-page").then((module) => ({ default: module.PdfReaderPage })));
 const ReportsPage = lazy(() => import("../features/reports/reports-page").then((module) => ({ default: module.ReportsPage })));
+const MonitoringPage = lazy(() => import("../features/monitoring/monitoring-page").then((module) => ({ default: module.MonitoringPage })));
+const TechnicalHealthPage = lazy(() => import("../features/technical-health/technical-health-page").then((module) => ({ default: module.TechnicalHealthPage })));
 
 function ShortcutHandler() {
   const { openContentDialog, closeContentDialog, pushToast } = useUIStore();
@@ -69,6 +71,9 @@ export function App() {
       <Route path="ideas" element={<IdeasPage />} />
       <Route path="templates" element={<TemplatesPage />} />
       <Route path="reports" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><ReportsPage /></Suspense>} />
+      <Route path="monitoring" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><MonitoringPage /></Suspense>} />
+      <Route path="monitoring/sources/:sourceId" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><MonitoringPage /></Suspense>} />
+      <Route path="technical-health" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><TechnicalHealthPage /></Suspense>} />
       <Route path="activity" element={<ActivityPage />} />
       <Route path="education" element={<EducationPage />} />
       <Route path="education/:materialId" element={<Suspense fallback={<div className="page"><div className="skeleton heading-skeleton" /><div className="skeleton panel-skeleton" /></div>}><PdfReaderPage /></Suspense>} />

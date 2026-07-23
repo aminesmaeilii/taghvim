@@ -1,4 +1,4 @@
-import { BellRing, DatabaseBackup, Download, Edit3, Keyboard, MonitorCog, Palette, Plus, Trash2, Upload, Users } from "lucide-react";
+import { BellRing, DatabaseBackup, Download, Edit3, Keyboard, MonitorCog, Palette, Plus, Radar, RefreshCw, Trash2, Upload, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/app-shell";
@@ -7,14 +7,14 @@ import { DEFAULT_SETTINGS, MARKETING_ROLE_LABELS } from "@shared/constants/defau
 import { contentRepository, type ReferenceEntity, type ReferenceKind } from "../../services/content-repository";
 import { downloadWorkspaceExcel } from "../../services/excel-export";
 import { useUIStore } from "../../stores/ui-store";
-import { MARKETING_ROLES, type AppSettings, type ContentPillar, type ContentType, type MarketingRole, type Platform, type Tag, type WorkspaceData } from "@shared/types/domain";
+import { MARKETING_ROLES, type AppSettings, type ContentPillar, type ContentType, type MarketingRole, type MonitoringSource, type Platform, type Tag, type WorkspaceData } from "@shared/types/domain";
 import { settingsKey, workspaceKey, useWorkspace } from "../../hooks/use-workspace";
 import { useAuth } from "../../hooks/use-auth-context";
 import { ALL_PERMISSIONS, authService } from "../../services/auth-service";
 import { getNotificationPermission, isNotificationSupported, requestNotificationPermission } from "../../services/notification-service";
 import type { AccountStatus, CreateUserInput, DataScope, RoleKey, SafeUser } from "@shared/types/auth";
 
-type SettingsTab = "display" | "notifications" | "backup" | "reference" | "users" | "shortcuts";
+type SettingsTab = "display" | "notifications" | "backup" | "reference" | "monitoring" | "users" | "shortcuts";
 
 export function SettingsPage() {
   const workspace = useWorkspace(); const { setTheme, pushToast } = useUIStore(); const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS); const [loaded, setLoaded] = useState(false); const [managerOpen, setManagerOpen] = useState(false); const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission); const input = useRef<HTMLInputElement>(null); const queryClient = useQueryClient();
@@ -41,6 +41,7 @@ export function SettingsPage() {
     { key: "notifications", label: "اعلان ها", icon: BellRing },
     { key: "backup", label: "داده و پشتیبان", icon: DatabaseBackup },
     { key: "reference", label: "داده های مرجع", icon: MonitorCog },
+    { key: "monitoring", label: "مانیتورینگ شبکه ها", icon: Radar },
     ...(canManageUsers ? [{ key: "users" as const, label: "کاربران", icon: Users }] : []),
     { key: "shortcuts", label: "میان برها", icon: Keyboard },
   ];
@@ -56,6 +57,8 @@ export function SettingsPage() {
 
         {tab === "reference" && <section className="surface settings-section"><header><MonitorCog size={20} /><div><h2>داده های مرجع</h2><p>نام و رنگ پلتفرم ها، نوع ها، ستون ها و برچسب ها را متناسب با تیم خود تنظیم کنید.</p></div></header><Button variant="secondary" onClick={() => setManagerOpen(true)}><Plus size={17} />مدیریت داده های مرجع</Button></section>}
 
+        {tab === "monitoring" && <MonitoringSettingsPanel />}
+
         {tab === "users" && canManageUsers && <UserManagementPanel />}
 
         {tab === "shortcuts" && <section className="surface settings-section"><header><Keyboard size={20} /><div><h2>میان برهای صفحه کلید</h2><p>برای کار سریع تر بدون ماوس.</p></div></header><div className="shortcut-list"><span><kbd>Ctrl / Cmd</kbd><kbd>N</kbd><b>محتوای جدید</b></span><span><kbd>Ctrl / Cmd</kbd><kbd>K</kbd><b>جستجوی سراسری</b></span><span><kbd>Esc</kbd><b>بستن پنل</b></span></div></section>}
@@ -63,6 +66,62 @@ export function SettingsPage() {
     </div>
     <ReferenceManager open={managerOpen} onClose={() => setManagerOpen(false)} workspace={workspace.data} />
   </div>;
+}
+
+function MonitoringSettingsPanel() {
+  const { user, hasPermission } = useAuth();
+  const { pushToast } = useUIStore();
+  const queryClient = useQueryClient();
+  const overview = useWorkspace();
+  const [draft, setDraft] = useState<MonitoringSource | null>(null);
+  const monitoring = overview.data ? {
+    platforms: overview.data.monitoringPlatforms,
+    sources: overview.data.monitoringSources,
+  } : { platforms: [], sources: [] };
+  const canEdit = hasPermission("settings.update");
+  const save = async () => {
+    if (!draft) return;
+    await contentRepository.saveMonitoringSource(draft, user ?? undefined);
+    await queryClient.invalidateQueries({ queryKey: workspaceKey });
+    await queryClient.invalidateQueries({ queryKey: ["monitoring-overview"] });
+    setDraft(null);
+    pushToast({ title: "منبع مانیتورینگ ذخیره شد." });
+  };
+  const archive = async (source: MonitoringSource, archived: boolean) => {
+    await contentRepository.archiveMonitoringSource(source.id, archived, user ?? undefined);
+    await queryClient.invalidateQueries({ queryKey: workspaceKey });
+    await queryClient.invalidateQueries({ queryKey: ["monitoring-overview"] });
+    pushToast({ title: archived ? "منبع بایگانی شد." : "منبع بازگردانی شد." });
+  };
+  const refresh = async (sourceId?: string) => {
+    await contentRepository.runMonitoringCollection("MANUAL", sourceId ?? null, user ?? undefined);
+    await queryClient.invalidateQueries({ queryKey: workspaceKey });
+    await queryClient.invalidateQueries({ queryKey: ["monitoring-overview"] });
+    pushToast({ title: "درخواست دریافت مانیتورینگ ثبت شد." });
+  };
+  const blank = (): MonitoringSource => {
+    const platform = monitoring.platforms[0];
+    const timestamp = new Date().toISOString();
+    return { id: crypto.randomUUID(), platformKey: platform?.key ?? "TELEGRAM", displayName: "", sourceType: "CHANNEL", sourceUrl: "", normalizedUrl: "", handle: "", externalId: "", avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: platform?.defaultCollectionIntervalMinutes ?? 1440, dailyCollectionTime: "06:00", freshnessThresholdHours: 30, timezone: "Asia/Tehran", sortOrder: monitoring.sources.length, version: 1, createdAt: timestamp, updatedAt: timestamp, archivedAt: null, createdBy: user?.id ?? null, identityChangedAt: null, identityChangeNote: null };
+  };
+  return <section className="surface settings-section monitoring-settings"><header><Radar size={20} /><div><h2>مانیتورینگ شبکه های اجتماعی</h2><p>منابع قابل پایش، برنامه دریافت روزانه و وضعیت connectorها را مدیریت کنید.</p></div></header>
+    <div className="settings-actions"><Button variant="secondary" onClick={() => void refresh()} disabled={!canEdit}><RefreshCw size={17} />دریافت همه منابع due</Button><Button onClick={() => setDraft(blank())} disabled={!canEdit}><Plus size={17} />افزودن منبع</Button></div>
+    <div className="monitoring-platform-list">{monitoring.platforms.map((platform) => <div key={platform.key}><span style={{ background: platform.accentColor }} /> <strong>{platform.displayNameFa}</strong><small>{platform.connectorKey} · {platform.healthStatus}</small></div>)}</div>
+    <div className="monitoring-source-settings">{monitoring.sources.map((source) => <div key={source.id}><strong>{source.displayName}</strong><span>{source.platformKey} · {source.handle ?? source.externalId ?? source.sourceUrl}</span><small>{source.archivedAt ? "بایگانی" : source.enabled ? "فعال" : "غیرفعال"} · {source.dailyCollectionTime}</small><div><Button size="sm" variant="secondary" onClick={() => setDraft(source)} disabled={!canEdit}>ویرایش</Button><Button size="sm" variant="secondary" onClick={() => void refresh(source.id)} disabled={!canEdit}>دریافت</Button><Button size="sm" variant={source.archivedAt ? "secondary" : "danger"} onClick={() => void archive(source, !source.archivedAt)} disabled={!canEdit}>{source.archivedAt ? "بازگردانی" : "بایگانی"}</Button></div></div>)}</div>
+    <Dialog open={Boolean(draft)} title="منبع مانیتورینگ" description="افزودن کانال از پلتفرم پشتیبانی شده نیاز به تغییر کد ندارد؛ آدرس در backend با allowlist اعتبارسنجی می شود." onClose={() => setDraft(null)} wide>
+      {draft && <div className="dialog-form form-grid">
+        <Field label="پلتفرم"><Select value={draft.platformKey} onChange={(event) => setDraft({ ...draft, platformKey: event.target.value })}>{monitoring.platforms.filter((item) => item.enabled).map((platform) => <option key={platform.key} value={platform.key}>{platform.displayNameFa}</option>)}</Select></Field>
+        <Field label="نام نمایشی"><Input value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} /></Field>
+        <Field label="آدرس کانال"><Input className="ltr-input" value={draft.sourceUrl} onChange={(event) => setDraft({ ...draft, sourceUrl: event.target.value })} /></Field>
+        <Field label="handle" optional><Input className="ltr-input" value={draft.handle ?? ""} onChange={(event) => setDraft({ ...draft, handle: event.target.value || null })} /></Field>
+        <Field label="شناسه خارجی" optional><Input className="ltr-input" value={draft.externalId ?? ""} onChange={(event) => setDraft({ ...draft, externalId: event.target.value || null })} /></Field>
+        <Field label="زمان دریافت روزانه"><Input type="time" value={draft.dailyCollectionTime} onChange={(event) => setDraft({ ...draft, dailyCollectionTime: event.target.value })} /></Field>
+        <Field label="آستانه تازگی"><Input type="number" min={1} value={draft.freshnessThresholdHours} onChange={(event) => setDraft({ ...draft, freshnessThresholdHours: Number(event.target.value) })} /></Field>
+        <label className="switch-row"><span><strong>فعال</strong><small>غیرفعال کردن منبع تاریخچه قبلی را حذف نمی کند.</small></span><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked, collectionEnabled: event.target.checked })} /></label>
+      </div>}
+      <footer className="dialog-footer"><Button variant="secondary" onClick={() => setDraft(null)}>انصراف</Button><Button onClick={() => void save()}>ذخیره</Button></footer>
+    </Dialog>
+  </section>;
 }
 
 function UserManagementPanel() {

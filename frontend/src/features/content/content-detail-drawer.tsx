@@ -24,7 +24,7 @@ export function ContentDetailDrawer({ content, workspace, onClose }: { content: 
   const archive = async () => { await contentRepository.archiveContent(content.id); invalidate(); logActivity("content.archive", "content", content.id, content.title); onClose(); pushToast({ title: "محتوا بایگانی شد." }); };
   const remove = async () => { if (window.confirm("این محتوا برای همیشه حذف شود؟")) { await contentRepository.deleteContent(content.id); invalidate(); logActivity("content.delete", "content", content.id, content.title); onClose(); pushToast({ title: "محتوا حذف شد." }); } };
   const status = STATUS_META[content.status];
-  return <Drawer open={Boolean(content)} title="جزئیات محتوا" onClose={onClose}>
+  return <Drawer open={Boolean(content)} title="جزئیات محتوا" onClose={onClose} placement="center">
     <div className="detail-drawer-content">
       <div className="detail-title"><StatusBadge status={content.status} label={status.label} color={status.color} /><h3>{content.title}</h3>{content.shortDescription && <p>{content.shortDescription}</p>}<LastEditedTag updatedByName={content.updatedByName} updatedByRole={content.updatedByRole} updatedAt={content.updatedAt} /></div>
       <div className="detail-meta"><span><CalendarDays size={16} />{formatJalaliDate(content.publicationDate)}{content.publicationTime && `، ${content.publicationTime}`}</span><span>{platform?.name ?? "پلتفرم حذف شده"}</span><span>{type?.name ?? "نوع حذف شده"}</span>{campaign && <span>{campaign.title}</span>}</div>

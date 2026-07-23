@@ -1,103 +1,87 @@
-# Zambil Content Calendar
+# Zambil / Taghvim
 
-داشبورد محتوایی زمبیل یک اپ React + TypeScript + Vite برای برنامه ریزی محتوا، ایده پردازی، PR، CMO و Content Creator است. پروژه دو مسیر runtime دارد:
+Zambil is a Persian-first content operations web app and installable PWA for planning a Jalali content calendar, managing tasks, campaigns, workflows, chat, reminders, notifications, reports, social Monitoring, technical health, and backup readiness.
 
-- Web/Vercel: ذخیره سازی local-first در IndexedDB مرورگر.
-- Desktop/Tauri: ذخیره سازی SQLite از طریق command های Tauri در `src-tauri`.
+Current verified version: `0.1.1`  
+Last verified commit during handover: `8842877`
 
-## Architecture
+## Features
 
-```text
-src/
-  app/                    React routes and app shell wiring
-  components/             Shared UI components
-  constants/              Default Zambil references and palettes
-  features/               Dashboard, content, planning, reports, auth, settings
-  services/
-    platform/             Web/Tauri runtime boundary
-    auth-service.ts        Browser/dev auth storage
-    content-repository.ts  Repository facade with web and Tauri implementations
-  styles/                 Application CSS
-src-tauri/                Tauri v2 Rust desktop backend
-dist/                     Web build output, generated
-vercel.json               Vercel SPA deployment settings
-```
+- React/Vite frontend with RTL Persian UI and PWA manifest/service worker.
+- Node backend API with `/api/workspace` RPC-style workspace operations.
+- Browser, backend, and Tauri repository adapters.
+- Authentication, user profiles, roles, permissions, sessions, and audit-oriented models.
+- Content calendar, tasks, campaigns, workflow, ideas, templates, reports, chat, reminders, notifications, social Monitoring, technical health, and settings.
+- PostgreSQL target schema and Tauri SQLite migrations.
+- Backup, restore-test, retention, performance, and verification scripts.
 
-مرز Tauri در `src/services/platform` ایزوله شده است. وب هیچ import مستقیم و sync از `@tauri-apps/api` ندارد؛ command ها فقط داخل adapter دسکتاپ و با dynamic import اجرا می شوند. اگر اپ روی وب اجرا شود، repository مرورگر از IndexedDB استفاده می کند.
+## Tech Summary
 
-## Requirements
+- Node.js `24.x`, npm workspaces.
+- Frontend: React 19, TypeScript, Vite, TanStack Query, Zustand, Tailwind base, Vazirmatn.
+- Backend: Node HTTP server, shared TypeScript services, optional Upstash Redis persistence.
+- Deployment config: Vercel frontend/functions, Render backend.
+- Database assets: PostgreSQL SQL schema under `database/postgres`, Tauri migrations under `src-tauri/migrations`.
 
-- Node.js 20.x برای Vercel و CI
-- npm
-- برای Desktop: Rust, Cargo, Tauri prerequisites و WebView2 روی Windows
+## Repository Structure
 
-## Local Development
+- `frontend/`: browser/PWA application.
+- `backend/`: Node backend server and workspace route.
+- `api/`: Vercel serverless proxy/scheduler/upload endpoints.
+- `shared/`: domain types, repositories, authorization, reports, monitoring, observability.
+- `database/postgres/`: unified PostgreSQL schema and backup catalog migration.
+- `src-tauri/`: Tauri desktop shell and SQLite migrations.
+- `scripts/backup/`: guarded backup, verify, restore-test, and retention tools.
+- `scripts/performance/`: synthetic data, load-test, and bundle-budget tools.
+- `docs/`: product, development, operations, security, and handover documentation.
+
+## Quick Local Setup
+
+Run from repository root:
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-آدرس توسعه وب و Tauri:
+Backend in another terminal:
 
-- Web: `http://127.0.0.1:1420`
-- اگر مرورگر شما اتصال نگرفت، می توانید Vite را دستی با host بازتر اجرا کنید: `npx vite --host 0.0.0.0 --port 5173`
+```powershell
+npm run build
+npm run start
+```
 
-## Quality Commands
+The backend listens on `http://localhost:3000` by default. Frontend development uses the frontend workspace Vite server.
+
+## Main Commands
 
 ```powershell
 npm run typecheck
 npm run lint
 npm run test:run
+npm run test:backup
 npm run build
+npm run perf:budget
 npm run verify
 ```
 
-## Preview
+Backup scripts require safe non-production variables before use; see [operations/backup-and-restore.md](docs/operations/backup-and-restore.md).
 
-```powershell
-npm run build
-npm run preview
-```
+## Documentation
 
-خروجی production وب از پوشه `dist` سرو می شود.
+Start at [docs/README.md](docs/README.md).
 
-## Vercel Deployment
+## Deployment Summary
 
-تنظیمات پیشنهادی Vercel:
+- Vercel builds `frontend/dist` using `npm --workspace frontend run build`.
+- Vercel functions in `api/` proxy/schedule selected backend actions.
+- Render uses `render.yaml` to build and run the backend.
+- Production persistence currently depends on configured Upstash Redis for the backend workspace snapshot. PostgreSQL schema exists, but runtime PostgreSQL integration is not wired in the current backend.
 
-- Framework Preset: `Vite`
-- Install Command: `npm ci`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Node.js Version: `20.x`
+## Security
 
-`vercel.json` شامل rewrite برای SPA است تا مسیرهای مستقیم به `index.html` برگردند.
+Never commit secrets, database dumps, private chat data, real VAPID keys, production URLs with credentials, or backup objects. Only `VITE_` variables are allowed in the browser bundle.
 
-## Environment
+## Maturity
 
-در حال حاضر هیچ متغیر production اجباری برای web build وجود ندارد. فقط متغیرهای با پیشوند `VITE_` وارد bundle مرورگر می شوند. فایل `.env.example` برای مستندسازی development است.
-
-نکته امنیتی: احراز هویت فعلی در نسخه وب local-first و مخصوص محیط داخلی/توسعه است. برای production واقعی با کاربرهای چندنفره، session و permission باید به backend قابل اعتماد یا command های محافظت شده Tauri منتقل شود.
-
-## Desktop/Tauri
-
-```powershell
-npm run tauri:dev
-npm run tauri:build
-```
-
-Tauri قبل از build دسکتاپ از `npm run build` استفاده می کند و خروجی `dist` را داخل برنامه بسته بندی می کند. کد Rust و migration ها در `src-tauri` نگه داشته شده اند.
-
-## Data Model
-
-- Web: `ContentRepository` داده ها را در IndexedDB با نام `rooznegar-offline` ذخیره می کند.
-- Desktop: همان facade command های Tauri را صدا می زند و داده در SQLite مدیریت می شود.
-- import/export و backup از صفحه تنظیمات در دسترس است.
-
-## Production Notes
-
-- Vercel build وب local-first است و بک اند ابری ندارد.
-- داده های هر مرورگر جداست و sync بین کاربران انجام نمی شود.
-- برای داده سازمانی واقعی، API/server database باید اضافه شود.
-- فایل های generated مثل `dist`, `src-tauri/target`, `installers`, log ها و `.vercel` در `.gitignore` هستند.
+Social Monitoring, backup automation, PostgreSQL runtime integration, full restore drills, and large-scale performance capacity need owner-provisioned staging/production validation before being treated as fully production-proven.

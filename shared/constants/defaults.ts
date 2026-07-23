@@ -1,4 +1,4 @@
-import type { AppSettings, ContentStatus, ContentStatusKey, ContentType, ContentPillar, MarketingRole, Platform } from "../types/domain.js";
+import type { AppSettings, ContentStatus, ContentStatusKey, ContentType, ContentPillar, MarketingRole, MonitoringPlatform, MonitoringPlatformCapability, MonitoringSource, Platform } from "../types/domain.js";
 
 const base = (id: string, sortOrder: number) => ({
   id,
@@ -110,3 +110,57 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export const PRIORITY_META = {
   low: "کم", normal: "عادی", high: "زیاد", urgent: "فوری",
 } as const;
+
+const monitoringBase = (id: string, sortOrder: number) => base(id, sortOrder);
+
+export const MONITORING_CAPABILITY_LABELS = {
+  PROFILE_INFORMATION: "اطلاعات پروفایل",
+  PROFILE_AVATAR: "تصویر پروفایل",
+  PROFILE_DESCRIPTION: "توضیحات پروفایل",
+  VERIFICATION_STATUS: "وضعیت تایید",
+  FOLLOWER_COUNT: "دنبال کننده",
+  MEMBER_COUNT: "عضو",
+  SUBSCRIBER_COUNT: "مشترک",
+  TOTAL_POST_COUNT: "کل محتوا",
+  RECENT_CONTENT: "محتوای اخیر",
+  CONTENT_TEXT_PREVIEW: "پیش نمایش متن",
+  CONTENT_MEDIA_TYPE: "نوع رسانه",
+  CONTENT_VIEWS: "بازدید",
+  CONTENT_REACTIONS: "واکنش",
+  CONTENT_COMMENTS: "نظر",
+  CONTENT_SHARES: "اشتراک گذاری",
+  CONTENT_FORWARDS: "فوروارد",
+  CONTENT_LIKES: "لایک",
+  CONTENT_ENGAGEMENT: "تعامل",
+  PUBLISHING_FREQUENCY: "تناوب انتشار",
+  LATEST_CONTENT_DATE: "آخرین انتشار",
+} as const;
+
+export const DEFAULT_MONITORING_PLATFORMS: MonitoringPlatform[] = [
+  { ...monitoringBase("monitoring-platform-instagram", 0), key: "INSTAGRAM", displayNameFa: "اینستاگرام", displayNameEn: "Instagram", icon: "Instagram", accentColor: "#c13584", connectorKey: "instagram-public-beta", connectorVersion: "0.1.0", enabled: true, supportedSourceTypes: ["PROFILE"], allowedDomains: ["instagram.com", "www.instagram.com"], defaultCollectionIntervalMinutes: 1440, minimumCollectionIntervalMinutes: 1440, status: "BETA", healthStatus: "LIMITED", lastVerifiedAt: null },
+  { ...monitoringBase("monitoring-platform-eitaa", 1), key: "EITAA", displayNameFa: "ایتا", displayNameEn: "Eitaa", icon: "MessageCircle", accentColor: "#f59e0b", connectorKey: "eitaa-public-beta", connectorVersion: "0.1.0", enabled: true, supportedSourceTypes: ["CHANNEL"], allowedDomains: ["eitaa.com"], defaultCollectionIntervalMinutes: 1440, minimumCollectionIntervalMinutes: 1440, status: "BETA", healthStatus: "LIMITED", lastVerifiedAt: null },
+  { ...monitoringBase("monitoring-platform-bale", 2), key: "BALE", displayNameFa: "بله", displayNameEn: "Bale", icon: "MessagesSquare", accentColor: "#0f766e", connectorKey: "bale-bot-beta", connectorVersion: "0.1.0", enabled: true, supportedSourceTypes: ["CHANNEL"], allowedDomains: ["web.bale.ai", "bale.ai"], defaultCollectionIntervalMinutes: 1440, minimumCollectionIntervalMinutes: 1440, status: "BETA", healthStatus: "LIMITED", lastVerifiedAt: null },
+  { ...monitoringBase("monitoring-platform-telegram", 3), key: "TELEGRAM", displayNameFa: "تلگرام", displayNameEn: "Telegram", icon: "Send", accentColor: "#229ed9", connectorKey: "telegram-bot-beta", connectorVersion: "0.1.0", enabled: true, supportedSourceTypes: ["CHANNEL"], allowedDomains: ["t.me", "telegram.me"], defaultCollectionIntervalMinutes: 1440, minimumCollectionIntervalMinutes: 1440, status: "BETA", healthStatus: "LIMITED", lastVerifiedAt: null },
+  { ...monitoringBase("monitoring-platform-rubika", 4), key: "RUBIKA", displayNameFa: "روبیکا", displayNameEn: "Rubika", icon: "PlaySquare", accentColor: "#dc2626", connectorKey: "rubika-public-beta", connectorVersion: "0.1.0", enabled: true, supportedSourceTypes: ["CHANNEL"], allowedDomains: ["rubika.ir"], defaultCollectionIntervalMinutes: 1440, minimumCollectionIntervalMinutes: 1440, status: "BETA", healthStatus: "LIMITED", lastVerifiedAt: null },
+];
+
+const restrictedCapabilities = ["PROFILE_INFORMATION", "RECENT_CONTENT", "LATEST_CONTENT_DATE", "PUBLISHING_FREQUENCY"] as const;
+export const DEFAULT_MONITORING_PLATFORM_CAPABILITIES: MonitoringPlatformCapability[] = DEFAULT_MONITORING_PLATFORMS.flatMap((platform) =>
+  (Object.keys(MONITORING_CAPABILITY_LABELS) as Array<keyof typeof MONITORING_CAPABILITY_LABELS>).map((capabilityKey) => ({
+    platformKey: platform.key,
+    capabilityKey,
+    supported: restrictedCapabilities.includes(capabilityKey as never),
+    supportLevel: restrictedCapabilities.includes(capabilityKey as never) ? "RESTRICTED" : "UNAVAILABLE",
+    lastVerifiedAt: null,
+    limitationReason: restrictedCapabilities.includes(capabilityKey as never) ? "در نسخه بتا فقط داده عمومی قابل اتکا و محدود بررسی می شود." : "این داده از منبع فعلی قابل دریافت نیست.",
+  })),
+);
+
+export const DEFAULT_MONITORING_SOURCES: MonitoringSource[] = [
+  { ...monitoringBase("monitoring-source-instagram-zambil", 0), platformKey: "INSTAGRAM", displayName: "اینستاگرام زمبیل", sourceType: "PROFILE", sourceUrl: "https://www.instagram.com/zambil.club", normalizedUrl: "https://www.instagram.com/zambil.club", handle: "zambil.club", externalId: null, avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: 1440, dailyCollectionTime: "06:00", freshnessThresholdHours: 30, timezone: "Asia/Tehran", createdBy: null, identityChangedAt: null, identityChangeNote: null },
+  { ...monitoringBase("monitoring-source-eitaa-zambil", 1), platformKey: "EITAA", displayName: "کانال ایتا زمبیل", sourceType: "CHANNEL", sourceUrl: "https://eitaa.com/zambil", normalizedUrl: "https://eitaa.com/zambil", handle: "zambil", externalId: null, avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: 1440, dailyCollectionTime: "06:05", freshnessThresholdHours: 30, timezone: "Asia/Tehran", createdBy: null, identityChangedAt: null, identityChangeNote: null },
+  { ...monitoringBase("monitoring-source-eitaa-zambil-seller", 2), platformKey: "EITAA", displayName: "کانال ایتا زمبیل دار", sourceType: "CHANNEL", sourceUrl: "https://eitaa.com/zambil_seller", normalizedUrl: "https://eitaa.com/zambil_seller", handle: "zambil_seller", externalId: null, avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: 1440, dailyCollectionTime: "06:10", freshnessThresholdHours: 30, timezone: "Asia/Tehran", createdBy: null, identityChangedAt: null, identityChangeNote: null },
+  { ...monitoringBase("monitoring-source-bale-zambil", 3), platformKey: "BALE", displayName: "کانال بله زمبیل", sourceType: "CHANNEL", sourceUrl: "https://web.bale.ai/chat?uid=6391255974", normalizedUrl: "https://web.bale.ai/chat?uid=6391255974", handle: null, externalId: "6391255974", avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: 1440, dailyCollectionTime: "06:15", freshnessThresholdHours: 30, timezone: "Asia/Tehran", createdBy: null, identityChangedAt: null, identityChangeNote: null },
+  { ...monitoringBase("monitoring-source-telegram-zambil", 4), platformKey: "TELEGRAM", displayName: "کانال تلگرام زمبیل", sourceType: "CHANNEL", sourceUrl: "https://t.me/zambil_shop", normalizedUrl: "https://t.me/zambil_shop", handle: "zambil_shop", externalId: null, avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: 1440, dailyCollectionTime: "06:20", freshnessThresholdHours: 30, timezone: "Asia/Tehran", createdBy: null, identityChangedAt: null, identityChangeNote: null },
+  { ...monitoringBase("monitoring-source-rubika-zambil", 5), platformKey: "RUBIKA", displayName: "کانال روبیکا زمبیل", sourceType: "CHANNEL", sourceUrl: "https://rubika.ir/zambil_shop", normalizedUrl: "https://rubika.ir/zambil_shop", handle: "zambil_shop", externalId: null, avatarUrl: null, enabled: true, collectionEnabled: true, collectionIntervalMinutes: 1440, dailyCollectionTime: "06:25", freshnessThresholdHours: 30, timezone: "Asia/Tehran", createdBy: null, identityChangedAt: null, identityChangeNote: null },
+];

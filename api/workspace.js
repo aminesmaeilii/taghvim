@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const backendUrl = process.env.BACKEND_URL || "https://taghvim.onrender.com";
+  const backendUrl = process.env.BACKEND_URL;
 
   if (!backendUrl) {
     return res.status(500).json({
@@ -15,11 +15,14 @@ export default async function handler(req, res) {
 
   try {
     const authorization = req.headers.authorization;
+    const requestId = req.headers["x-request-id"] || req.headers["x-correlation-id"] || `req_${crypto.randomUUID().slice(0, 8)}`;
+    res.setHeader("x-request-id", requestId);
 
     const upstream = await fetch(`${backendUrl.replace(/\/$/, "")}/api/workspace`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-Request-Id": requestId,
         ...(authorization ? { Authorization: authorization } : {}),
       },
       body: JSON.stringify(req.body ?? {}),

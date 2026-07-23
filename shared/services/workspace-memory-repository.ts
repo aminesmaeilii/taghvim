@@ -1,7 +1,11 @@
 import { DEFAULT_PILLARS, DEFAULT_PLATFORMS, DEFAULT_STATUSES, DEFAULT_TYPES } from "../constants/defaults.js";
+import { requirePermission } from "./authorization.js";
+import { ensureMonitoringDefaults, monitoringOverview, runMonitoringCollection, validateMonitoringSource } from "./monitoring-service.js";
+import { buildTechnicalHealthOverview } from "./observability.js";
 import { buildReportSnapshot } from "./report-metrics.js";
 import type { SafeUser } from "../types/auth.js";
-import type { ActivityLogEntry, AdBudget, AppNotification, AppSettings, Campaign, ChatContextType, ChatConversation, ChatConversationMember, ChatConversationSummary, ChatMemberRole, ChatMessage, ChatMessagePage, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, LearningMaterial, PersonalNote, PushSubscriptionRecord, Reminder, ReminderRelatedEntityType, ReportFilters, ReportSnapshot, TaskItem, UserProfile, WorkspaceData, Platform, Tag } from "../types/domain.js";
+import type { ActivityLogEntry, AdBudget, AppNotification, AppSettings, Campaign, ChatContextType, ChatConversation, ChatConversationMember, ChatConversationSummary, ChatMemberRole, ChatMessage, ChatMessagePage, Content, ContentFilters, ContentIdea, ContentTemplate, ContentPillar, ContentStatus, ContentType, DashboardData, Highlight, LearningMaterial, MonitoringJobTrigger, MonitoringOverview, MonitoringPlatform, MonitoringSource, PersonalNote, PushSubscriptionRecord, Reminder, ReminderRelatedEntityType, ReportFilters, ReportSnapshot, TaskItem, UserProfile, WorkspaceData, Platform, Tag } from "../types/domain.js";
+import type { TechnicalHealthOverview } from "./observability.js";
 import { todayIso } from "../utils/jalali.js";
 
 export type NewContent = Omit<Content, "id" | "createdAt" | "updatedAt" | "archivedAt" | "sortOrder" | "version" | "contentVersion">;
@@ -58,6 +62,12 @@ export interface ContentRepository {
   revokePushSubscription(userId: string, subscriptionId: string): Promise<void>;
   listPushSubscriptions(userId: string): Promise<PushSubscriptionRecord[]>;
   processDueReminders(atUtc?: string): Promise<{ processed: number; notificationsCreated: number; failed: number }>;
+  monitoringOverview(): Promise<MonitoringOverview>;
+  saveMonitoringSource(source: MonitoringSource, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<MonitoringSource>;
+  archiveMonitoringSource(sourceId: string, archived: boolean, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<void>;
+  saveMonitoringPlatform(platform: MonitoringPlatform, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<MonitoringPlatform>;
+  runMonitoringCollection(triggerType?: MonitoringJobTrigger, sourceId?: string | null, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<{ processed: number; succeeded: number; failed: number }>;
+  technicalHealth(viewer?: Pick<SafeUser, "id" | "permissions">): Promise<TechnicalHealthOverview>;
 }
 
 function now(): string { return new Date().toISOString(); }
@@ -78,6 +88,7 @@ function createWorkspace(): WorkspaceData {
     campaigns: [], tags: [], pillars: clone(DEFAULT_PILLARS), ideas: [], templates: [],
     userProfiles: [], activityLog: [],
     learningMaterials: [], highlights: [], personalNotes: [], adBudgets: [], tasks: [], chatConversations: [], chatMembers: [], chatMessages: [], reminders: [], pushSubscriptions: [], notifications: [],
+    monitoringPlatforms: [], monitoringPlatformCapabilities: [], monitoringSources: [], monitoringSourceCapabilities: [], monitoringSnapshots: [], monitoredContents: [], monitoredContentSnapshots: [], monitoringJobs: [], monitoringDailyAggregates: [], monitoringEvents: [],
   };
 }
 
@@ -347,10 +358,16 @@ export class MemoryRepository implements ContentRepository {
     this.data.reminders ??= [];
     this.data.pushSubscriptions ??= [];
     this.data.notifications ??= [];
+    ensureMonitoringDefaults(this.data);
     this.settings = clone(snapshot.settings);
   }
 
-  ensureDefaults(): boolean { return ensureDefaultReferences(this.data) || seedStarterWorkspace(this.data); }
+  ensureDefaults(): boolean {
+    const references = ensureDefaultReferences(this.data);
+    const monitoring = ensureMonitoringDefaults(this.data);
+    const starter = seedStarterWorkspace(this.data);
+    return references || monitoring || starter;
+  }
   async bootstrap(): Promise<WorkspaceData> { this.ensureDefaults(); return clone(this.data); }
   async listContents(filters?: ContentFilters): Promise<Content[]> {
     return clone(this.data.contents.filter((item) => matchesFilters(item, filters)).sort((a, b) => `${a.publicationDate}${a.publicationTime ?? ""}`.localeCompare(`${b.publicationDate}${b.publicationTime ?? ""}`)));
@@ -429,7 +446,7 @@ export class MemoryRepository implements ContentRepository {
     });
   }
   async reportSnapshot(filters: ReportFilters, viewer?: Pick<SafeUser, "id" | "role" | "team" | "dataScope" | "permissions">, page?: number, pageSize?: number): Promise<ReportSnapshot> {
-    if (viewer && !viewer.permissions.includes("reports.view")) throw new Error("به گزارش ها دسترسی ندارید.");
+    if (viewer) requirePermission(viewer, "reports.view", "به گزارش ها دسترسی ندارید.");
     return buildReportSnapshot(this.data, filters, viewer, page, pageSize);
   }
   async exportWorkspace(): Promise<string> { return JSON.stringify({ version: 1, exportedAt: now(), workspace: this.data, settings: this.settings }, null, 2); }
@@ -437,7 +454,7 @@ export class MemoryRepository implements ContentRepository {
     try {
       const parsed = JSON.parse(raw) as { workspace?: Partial<WorkspaceData>; settings?: AppSettings | null };
       if (!parsed.workspace || typeof parsed.workspace !== "object") throw new Error("ساختار فایل پشتیبان معتبر نیست.");
-      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "learningMaterials", "highlights", "personalNotes", "adBudgets", "tasks", "chatConversations", "chatMembers", "chatMessages", "reminders", "pushSubscriptions", "notifications"] as const;
+      const keys = ["contents", "platforms", "types", "statuses", "campaigns", "tags", "pillars", "ideas", "templates", "userProfiles", "activityLog", "learningMaterials", "highlights", "personalNotes", "adBudgets", "tasks", "chatConversations", "chatMembers", "chatMessages", "reminders", "pushSubscriptions", "notifications", "monitoringPlatforms", "monitoringPlatformCapabilities", "monitoringSources", "monitoringSourceCapabilities", "monitoringSnapshots", "monitoredContents", "monitoredContentSnapshots", "monitoringJobs", "monitoringDailyAggregates", "monitoringEvents"] as const;
       let imported = 0;
       let skipped = 0;
       const errors: string[] = [];
@@ -655,6 +672,58 @@ export class MemoryRepository implements ContentRepository {
       }
     }
     return { processed: due.length, notificationsCreated, failed };
+  }
+  async monitoringOverview(): Promise<MonitoringOverview> {
+    return clone(monitoringOverview(this.data));
+  }
+  async saveMonitoringSource(source: MonitoringSource, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<MonitoringSource> {
+    if (viewer) requirePermission(viewer, "settings.update", "برای تغییر منابع مانیتورینگ دسترسی ندارید.");
+    const validation = validateMonitoringSource(this.data, source);
+    if (!validation.ok) throw new Error(validation.message);
+    const timestamp = now();
+    const index = this.data.monitoringSources.findIndex((item) => item.id === source.id);
+    const existing = index >= 0 ? this.data.monitoringSources[index] : null;
+    const saved: MonitoringSource = {
+      ...source,
+      id: source.id || id(),
+      normalizedUrl: validation.normalizedUrl,
+      createdAt: existing?.createdAt ?? source.createdAt ?? timestamp,
+      updatedAt: timestamp,
+      archivedAt: source.archivedAt ?? existing?.archivedAt ?? null,
+      sortOrder: existing?.sortOrder ?? this.data.monitoringSources.length,
+      version: (existing?.version ?? 0) + 1,
+      createdBy: source.createdBy ?? viewer?.id ?? null,
+    };
+    if (existing && existing.normalizedUrl !== saved.normalizedUrl && !source.identityChangedAt) {
+      saved.identityChangedAt = timestamp;
+      saved.identityChangeNote = "آدرس منبع تغییر کرد؛ تاریخچه قبلی حفظ شده و تغییر هویت علامت گذاری شد.";
+    }
+    if (index >= 0) this.data.monitoringSources[index] = saved; else this.data.monitoringSources.push(saved);
+    this.data.monitoringEvents.unshift({ id: id(), sourceId: saved.id, platformKey: saved.platformKey, eventType: index >= 0 ? "SOURCE_UPDATED" : "SOURCE_ADDED", title: index >= 0 ? "منبع مانیتورینگ ویرایش شد" : "منبع مانیتورینگ اضافه شد", metadata: { displayName: saved.displayName }, occurredAt: timestamp, createdAt: timestamp });
+    return clone(saved);
+  }
+  async archiveMonitoringSource(sourceId: string, archived: boolean, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<void> {
+    if (viewer) requirePermission(viewer, "settings.update", "برای بایگانی منابع مانیتورینگ دسترسی ندارید.");
+    const source = this.data.monitoringSources.find((item) => item.id === sourceId);
+    if (!source) return;
+    source.archivedAt = archived ? now() : null;
+    source.enabled = !archived;
+    source.updatedAt = now();
+  }
+  async saveMonitoringPlatform(platform: MonitoringPlatform, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<MonitoringPlatform> {
+    if (viewer) requirePermission(viewer, "settings.update", "برای تغییر پلتفرم های مانیتورینگ دسترسی ندارید.");
+    const index = this.data.monitoringPlatforms.findIndex((item) => item.key === platform.key);
+    const saved = { ...platform, updatedAt: now(), version: index >= 0 ? this.data.monitoringPlatforms[index].version + 1 : 1 };
+    if (index >= 0) this.data.monitoringPlatforms[index] = saved; else this.data.monitoringPlatforms.push(saved);
+    return clone(saved);
+  }
+  async runMonitoringCollection(triggerType: MonitoringJobTrigger = "MANUAL", sourceId?: string | null, viewer?: Pick<SafeUser, "id" | "permissions">): Promise<{ processed: number; succeeded: number; failed: number }> {
+    if (viewer && triggerType === "MANUAL") requirePermission(viewer, "settings.update", "برای اجرای دستی مانیتورینگ دسترسی ندارید.");
+    return runMonitoringCollection(this.data, triggerType, sourceId);
+  }
+  async technicalHealth(viewer?: Pick<SafeUser, "id" | "permissions">): Promise<TechnicalHealthOverview> {
+    if (viewer) requirePermission(viewer, "technical_health.read", "برای مشاهده سلامت سامانه دسترسی ندارید.");
+    return clone(buildTechnicalHealthOverview(this.data));
   }
   private requireChatMember(userId: string, conversationId: string): ChatConversationMember {
     const member = this.data.chatMembers.find((item) => item.userId === userId && item.conversationId === conversationId);
