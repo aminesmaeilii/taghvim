@@ -16,12 +16,12 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["./shared/*"]
     },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "../shared"]
+  "include": ["src", "shared"]
 }

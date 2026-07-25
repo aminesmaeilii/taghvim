@@ -1,87 +1,86 @@
 # Zambil / Taghvim
 
-Zambil is a Persian-first content operations web app and installable PWA for planning a Jalali content calendar, managing tasks, campaigns, workflows, chat, reminders, notifications, reports, social Monitoring, technical health, and backup readiness.
+Persian-first content operations app: a Jalali content calendar plus tasks,
+campaigns, workflows, chat, reminders, notifications, reports, social
+monitoring, and technical health tracking.
 
-Current verified version: `0.1.1`  
-Last verified commit during handover: `8842877`
+Two independent, self-contained parts:
 
-## Features
+- **`backend/`** — Node HTTP API (calendar/content data, auth, file uploads).
+- **`frontend/`** — React/Vite app, builds to static files.
 
-- React/Vite frontend with RTL Persian UI and PWA manifest/service worker.
-- Node backend API with `/api/workspace` RPC-style workspace operations.
-- Browser, backend, and Tauri repository adapters.
-- Authentication, user profiles, roles, permissions, sessions, and audit-oriented models.
-- Content calendar, tasks, campaigns, workflow, ideas, templates, reports, chat, reminders, notifications, social Monitoring, technical health, and settings.
-- PostgreSQL target schema and Tauri SQLite migrations.
-- Backup, restore-test, retention, performance, and verification scripts.
+Neither folder depends on the other at build time, and neither depends on
+any specific hosting provider — deploy them on one server or two, on any
+host that runs Node and serves static files.
 
-## Tech Summary
+## Deploying on a server
 
-- Node.js `24.x`, npm workspaces.
-- Frontend: React 19, TypeScript, Vite, TanStack Query, Zustand, Tailwind base, Vazirmatn.
-- Backend: Node HTTP server, shared TypeScript services, optional Upstash Redis persistence.
-- Deployment config: Vercel frontend/functions, Render backend.
-- Database assets: PostgreSQL SQL schema under `backend/database/postgres`, Tauri migrations under `src-tauri/migrations`.
+### 1. Backend
 
-## Repository Structure
-
-- `frontend/`: browser/PWA application.
-- `backend/`: Node backend server and workspace route.
-- `api/`: Vercel serverless proxy/scheduler/upload endpoints.
-- `shared/`: domain types, repositories, authorization, reports, monitoring, observability.
-- `backend/database/postgres/`: unified PostgreSQL schema and backup catalog migration.
-- `src-tauri/`: Tauri desktop shell and SQLite migrations.
-- `backend/scripts/backup/`: guarded backup, verify, restore-test, and retention tools.
-- `scripts/performance/`: synthetic data, load-test, and bundle-budget tools.
-- `docs/`: product, development, operations, security, and handover documentation.
-
-## Quick Local Setup
-
-Run from repository root:
-
-```powershell
-npm ci
-npm run dev
-```
-
-Backend in another terminal:
-
-```powershell
+```bash
+cd backend
+npm install
+cp .env.example .env   # fill in the values below
 npm run build
-npm run start
+npm start
 ```
 
-The backend listens on `http://localhost:3000` by default. Frontend development uses the frontend workspace Vite server.
+Required for real persistence: **`UPSTASH_REDIS_REST_URL`** and
+**`UPSTASH_REDIS_REST_TOKEN`** — create a free Redis database at
+[upstash.com](https://upstash.com) and copy both values from its REST API
+tab. Without these, data is written to a local JSON file on disk instead and
+is lost on every restart — this is not a production-safe configuration.
 
-## Main Commands
+Also set **`ALLOWED_ORIGINS`** to the exact origin the frontend will be
+served from, e.g. `https://calendar.yourdomain.com`.
 
-```powershell
-npm run typecheck
-npm run lint
-npm run test:run
-npm run test:backup
+See `backend/README.md` for the full environment variable list, the
+scheduled-job (reminders/monitoring) setup, and file-upload configuration.
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # set VITE_API_URL to the backend's URL from step 1
 npm run build
-npm run perf:budget
-npm run verify
 ```
 
-Backup scripts require safe non-production variables before use; see [operations/backup-and-restore.md](docs/operations/backup-and-restore.md).
+`npm run build` produces `frontend/dist/` — serve it with any static file
+host (nginx, Caddy, a CDN, etc.). See `frontend/README.md` for the two
+supported deployment shapes (separate origin vs. same-origin reverse proxy).
 
-## Documentation
+### 3. Point them at each other
 
-Start at [docs/README.md](docs/README.md).
+- Frontend's `VITE_API_URL` → backend's public URL.
+- Backend's `ALLOWED_ORIGINS` → frontend's public origin (for CORS).
 
-## Deployment Summary
+## Local development
 
-- Vercel builds `frontend/dist` using `npm --workspace frontend run build`.
-- Vercel functions in `api/` proxy/schedule selected backend actions.
-- Render uses `render.yaml` to build and run the backend.
-- Production persistence currently depends on configured Upstash Redis for the backend workspace snapshot. PostgreSQL schema exists, but runtime PostgreSQL integration is not wired in the current backend.
+```bash
+cd backend && npm install && npm run build && npm start   # terminal 1
+cd frontend && npm install && npm run dev                  # terminal 2
+```
 
-## Security
+The backend listens on `http://localhost:3000` by default; the frontend
+dev server runs on `http://localhost:1420`.
 
-Never commit secrets, database dumps, private chat data, real VAPID keys, production URLs with credentials, or backup objects. Only `VITE_` variables are allowed in the browser bundle.
+## Default admin login
 
-## Maturity
+On first boot, if no Super Admin exists yet, the backend creates one:
+username `taghvim-root`, password `Taghvim-Admin-2026` (both overridable via
+`BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` in the backend's env).
 
-Social Monitoring, backup automation, PostgreSQL runtime integration, full restore drills, and large-scale performance capacity need owner-provisioned staging/production validation before being treated as fully production-proven.
+## Notes
+
+- `backend/database/` holds a PostgreSQL schema for a possible future
+  migration off the current Redis-snapshot persistence model — it exists
+  but isn't wired into the running server yet.
+- `backend/scripts/backup/` are Postgres backup/verify/restore tools tied
+  to that same future schema.
+- File uploads (attachments) use Vercel Blob storage — a storage API usable
+  from any server, independent of where the app itself is hosted. See
+  `backend/README.md` for the required token.
+- Never commit secrets, real API tokens, or production URLs with
+  credentials embedded in them. Only `VITE_`-prefixed variables are exposed
+  to the browser bundle.

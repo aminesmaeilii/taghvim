@@ -1,16 +1,17 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import authHandler from "./routes/auth.js";
 import workspaceHandler from "./routes/workspace.js";
+import blobUploadHandler from "./routes/blob-upload.js";
 
 const PORT = Number(process.env.PORT || 3000);
 
-type RenderRequest = {
+type HttpRequest = {
   method?: string;
   headers: { origin?: string; authorization?: string; "user-agent"?: string; "x-request-id"?: string; "x-correlation-id"?: string };
   body: unknown;
 };
 
-type RenderResponse = {
+type HttpResponse = {
   setHeader(name: string, value: string): void;
   status(code: number): {
     json(body: unknown): void;
@@ -35,7 +36,7 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
-function createAdapter(req: IncomingMessage, res: ServerResponse, body: unknown): { req: RenderRequest; res: RenderResponse } {
+function createAdapter(req: IncomingMessage, res: ServerResponse, body: unknown): { req: HttpRequest; res: HttpResponse } {
   return {
     req: {
       method: req.method,
@@ -104,7 +105,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (url.pathname !== "/api/workspace" && url.pathname !== "/api/auth") {
+    if (url.pathname !== "/api/workspace" && url.pathname !== "/api/auth" && url.pathname !== "/api/blob-upload") {
       res.statusCode = 404;
       res.setHeader("content-type", "application/json; charset=utf-8");
       res.end(JSON.stringify({ error: "Not found." }));
@@ -114,6 +115,7 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     const adapter = createAdapter(req, res, body);
     if (url.pathname === "/api/auth") await authHandler(adapter.req, adapter.res);
+    else if (url.pathname === "/api/blob-upload") await blobUploadHandler(adapter.req, adapter.res);
     else await workspaceHandler(adapter.req, adapter.res);
   } catch (error) {
     res.statusCode = 500;

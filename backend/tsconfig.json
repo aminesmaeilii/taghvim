@@ -7,10 +7,10 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "rootDir": "..",
+    "rootDir": ".",
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src", "../shared/**/*.ts"],
-  "exclude": ["../shared/**/*.test.ts", "../shared/**/*.spec.ts"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

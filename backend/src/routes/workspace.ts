@@ -1,16 +1,16 @@
 import { Redis } from "@upstash/redis";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { MemoryRepository, type ContentRepository } from "../../../shared/services/workspace-memory-repository.js";
-import { createLogEntry, normalizeCorrelationId, serializeLog } from "../../../shared/services/observability.js";
+import { MemoryRepository, type ContentRepository } from "../../shared/services/workspace-memory-repository.js";
+import { createLogEntry, normalizeCorrelationId, serializeLog } from "../../shared/services/observability.js";
 
-type VercelRequest = {
+type HttpRequest = {
   method?: string;
   headers: { origin?: string; "x-request-id"?: string; "x-correlation-id"?: string };
   body: unknown;
 };
 
-type VercelResponse = {
+type HttpResponse = {
   setHeader(name: string, value: string): void;
   status(code: number): {
     json(body: unknown): void;
@@ -28,7 +28,7 @@ const SNAPSHOT_KEY = "taghvim:workspace:v1";
 // Fallback persistence for when Upstash Redis isn't configured: without this, every request
 // starts from a brand-new in-memory repository and nothing a user saves survives past that
 // single HTTP response. A local file at least survives across requests on a persistent
-// long-running process (e.g. Render's Node service) — it just won't survive a redeploy/restart.
+// long-running process — it just won't survive a redeploy/restart.
 const SNAPSHOT_FILE = join(process.cwd(), ".data", "workspace-snapshot.json");
 let redis: Redis | null = null;
 let fileWriteQueue: Promise<void> = Promise.resolve();
@@ -77,18 +77,12 @@ const MUTATIONS = new Set<keyof ContentRepository>([
   "runMonitoringCollection",
 ]);
 
-function setCors(req: VercelRequest, res: VercelResponse): void {
+function setCors(req: HttpRequest, res: HttpResponse): void {
   const origin = req.headers.origin;
-  const allowed = new Set([
-    "https://taghvim.vercel.app",
-    process.env.FRONTEND_URL,
-    ...(process.env.ALLOWED_ORIGINS?.split(",").map((item) => item.trim()).filter(Boolean) ?? []),
-    "http://localhost:1420",
-    "http://localhost:5173",
-    "http://127.0.0.1:1420",
-    "http://127.0.0.1:5173",
-  ].filter(Boolean));
-  res.setHeader("access-control-allow-origin", origin && allowed.has(origin) ? origin : "https://taghvim.vercel.app");
+  const configured = [process.env.FRONTEND_URL, ...(process.env.ALLOWED_ORIGINS?.split(",").map((item) => item.trim()).filter(Boolean) ?? [])].filter((value): value is string => Boolean(value));
+  const devOrigins = ["http://localhost:1420", "http://localhost:5173", "http://127.0.0.1:1420", "http://127.0.0.1:5173"];
+  const allowed = new Set([...configured, ...devOrigins]);
+  res.setHeader("access-control-allow-origin", origin && allowed.has(origin) ? origin : configured[0] ?? devOrigins[0]);
   res.setHeader("access-control-allow-methods", "POST, OPTIONS");
   res.setHeader("access-control-allow-headers", "content-type, authorization");
 }
@@ -144,7 +138,7 @@ function getRedis(): Redis | null {
   return redis;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: HttpRequest, res: HttpResponse) {
   const started = Date.now();
   const requestId = normalizeCorrelationId(req.headers["x-request-id"] ?? req.headers["x-correlation-id"]);
   res.setHeader("x-request-id", requestId);

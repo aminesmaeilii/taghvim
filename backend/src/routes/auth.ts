@@ -3,17 +3,17 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pbkdf2, randomBytes, randomUUID, timingSafeEqual, createHash } from "node:crypto";
 import { promisify } from "node:util";
-import type { AccountStatus, AuditLog, AuthSession, AuthUser, CreateUserInput, LoginResult, Permission, SafeUser } from "../../../shared/types/auth.js";
-import { ALL_PERMISSIONS, DATA_SCOPES, ROLES, effectivePermissions, hasPermission as userHasPermission } from "../../../shared/services/authorization.js";
-import { createLogEntry, normalizeCorrelationId, serializeLog } from "../../../shared/services/observability.js";
+import type { AccountStatus, AuditLog, AuthSession, AuthUser, CreateUserInput, LoginResult, Permission, SafeUser } from "../../shared/types/auth.js";
+import { ALL_PERMISSIONS, DATA_SCOPES, ROLES, effectivePermissions, hasPermission as userHasPermission } from "../../shared/services/authorization.js";
+import { createLogEntry, normalizeCorrelationId, serializeLog } from "../../shared/services/observability.js";
 
-type VercelRequest = {
+type HttpRequest = {
   method?: string;
   headers: { origin?: string; authorization?: string; "user-agent"?: string; "x-request-id"?: string; "x-correlation-id"?: string };
   body: unknown;
 };
 
-type VercelResponse = {
+type HttpResponse = {
   setHeader(name: string, value: string): void;
   status(code: number): { json(body: unknown): void; end(): void };
 };
@@ -83,10 +83,11 @@ async function addAudit(snapshot: AuthSnapshot, entry: Omit<AuditLog, "id" | "cr
 }
 async function ensureBootstrapAdmin(snapshot: AuthSnapshot): Promise<boolean> {
   if (snapshot.users.some((user) => user.role === "SUPER_ADMIN" && user.status !== "DELETED")) return false;
-  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || "Taghvim!2026#Root";
+  const username = process.env.BOOTSTRAP_ADMIN_USERNAME || "taghvim-root";
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || "Taghvim-Admin-2026";
   const { hash, salt } = await hashPassword(password);
   const admin: AuthUser = {
-    id: randomUUID(), username: process.env.BOOTSTRAP_ADMIN_USERNAME || "taghvim-root", email: "root@taghvim.app", firstName: "مدیر", lastName: "سیستم",
+    id: randomUUID(), username, email: "root@taghvim.app", firstName: "مدیر", lastName: "سیستم",
     phone: null, avatarUrl: null, jobTitle: "Super Admin", department: "مدیریت", team: "هسته", role: "SUPER_ADMIN", extraPermissions: [],
     dataScope: "ALL", status: "ACTIVE", mustChangePassword: false, passwordHash: hash, passwordSalt: salt, passwordUpdatedAt: now(),
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, lastActivityAt: null, createdAt: now(), updatedAt: now(), deletedAt: null, adminNotes: "Bootstrap account",
@@ -95,11 +96,11 @@ async function ensureBootstrapAdmin(snapshot: AuthSnapshot): Promise<boolean> {
   await addAudit(snapshot, { actorUserId: null, targetUserId: admin.id, action: "auth.bootstrap_super_admin", result: "success", metadata: { username: admin.username } });
   return true;
 }
-function bearerToken(req: VercelRequest): string | null {
+function bearerToken(req: HttpRequest): string | null {
   const header = req.headers.authorization;
   return header?.startsWith("Bearer ") ? header.slice(7) : null;
 }
-async function currentFullUser(snapshot: AuthSnapshot, req: VercelRequest): Promise<{ user: AuthUser; session: AuthSession } | null> {
+async function currentFullUser(snapshot: AuthSnapshot, req: HttpRequest): Promise<{ user: AuthUser; session: AuthSession } | null> {
   const token = bearerToken(req);
   if (!token) return null;
   const tokenHash = sha256(token);
@@ -108,26 +109,28 @@ async function currentFullUser(snapshot: AuthSnapshot, req: VercelRequest): Prom
   const user = snapshot.users.find((item) => item.id === session.userId && item.status === "ACTIVE" && !item.deletedAt);
   return user ? { user, session } : null;
 }
-async function requireUser(snapshot: AuthSnapshot, req: VercelRequest): Promise<AuthUser> {
+async function requireUser(snapshot: AuthSnapshot, req: HttpRequest): Promise<AuthUser> {
   const current = await currentFullUser(snapshot, req);
   if (!current) throw new Error("ابتدا وارد شوید.");
   return current.user;
 }
-async function requirePermission(snapshot: AuthSnapshot, req: VercelRequest, permission: Permission): Promise<AuthUser> {
+async function requirePermission(snapshot: AuthSnapshot, req: HttpRequest, permission: Permission): Promise<AuthUser> {
   const user = await requireUser(snapshot, req);
   if (!userHasPermission(toSafeUser(user), permission)) throw new Error("شما به این بخش دسترسی ندارید.");
   return user;
 }
 
-function setCors(req: VercelRequest, res: VercelResponse): void {
+function setCors(req: HttpRequest, res: HttpResponse): void {
   const origin = req.headers.origin;
-  const allowed = new Set(["https://taghvim.vercel.app", process.env.FRONTEND_URL, ...(process.env.ALLOWED_ORIGINS?.split(",").map((item) => item.trim()).filter(Boolean) ?? []), "http://localhost:1420", "http://localhost:5173", "http://127.0.0.1:1420", "http://127.0.0.1:5173"].filter(Boolean));
-  res.setHeader("access-control-allow-origin", origin && allowed.has(origin) ? origin : "https://taghvim.vercel.app");
+  const configured = [process.env.FRONTEND_URL, ...(process.env.ALLOWED_ORIGINS?.split(",").map((item) => item.trim()).filter(Boolean) ?? [])].filter((value): value is string => Boolean(value));
+  const devOrigins = ["http://localhost:1420", "http://localhost:5173", "http://127.0.0.1:1420", "http://127.0.0.1:5173"];
+  const allowed = new Set([...configured, ...devOrigins]);
+  res.setHeader("access-control-allow-origin", origin && allowed.has(origin) ? origin : configured[0] ?? devOrigins[0]);
   res.setHeader("access-control-allow-methods", "POST, OPTIONS");
   res.setHeader("access-control-allow-headers", "content-type, authorization");
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: HttpRequest, res: HttpResponse) {
   const started = Date.now();
   const requestId = normalizeCorrelationId(req.headers["x-request-id"] ?? req.headers["x-correlation-id"]);
   res.setHeader("x-request-id", requestId);

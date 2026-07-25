@@ -1,13 +1,24 @@
 {
-  "name": "@taghvim/backend",
+  "name": "taghvim-backend",
   "private": true,
+  "version": "0.1.1",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/backend/src/server.js",
+    "start": "node dist/src/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@upstash/redis": "^1.38.0"
+    "@upstash/redis": "^1.38.0",
+    "@vercel/blob": "^2.6.1",
+    "jalaali-js": "^1.2.8"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2",
+    "@types/node": "^22.10.5",
+    "@types/jalaali-js": "^1.2.0"
   }
 }

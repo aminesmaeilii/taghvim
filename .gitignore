@@ -1,21 +1,7 @@
 node_modules/
-
-# Build output
 dist/
-backend/dist/
-frontend/dist/
 coverage/
 *.tsbuildinfo
-
-# Tauri and installer output
-src-tauri/target/
-src-tauri/target/**
-target/
-installers/
-*.msi
-*.dmg
-*.AppImage
-*.deb
 
 # Local databases and logs
 *.db
@@ -23,27 +9,17 @@ installers/
 *.db-wal
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-vite-localhost*.log
 
 # Environment and deployment state
 .env
 .env.*
 !.env.example
-.vercel/
 
 # Temporary files
 .cache/
 .tmp/
 tmp/
-
-# Local fallback workspace snapshot (used only when Upstash Redis isn't configured)
-backend/.data/
-.data/
 temp/
-performance-results/
 
 # OS and editor files
 .DS_Store
